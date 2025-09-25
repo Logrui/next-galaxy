@@ -9,17 +9,23 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "canvas-sketch-util": "^1.10.0",
+    "gsap": "^3.13.0",
+    "lil-gui": "^0.20.0",
+    "next": "15.5.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.3"
+    "simple-input-events": "^2.0.0",
+    "three": "^0.180.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.180.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
-    "@eslint/eslintrc": "^3"
+    "typescript": "^5"
   }
 }
