@@ -1,8 +1,6 @@
 # 🌌 Next Galaxy
 
-A stunning, interactive 3D galaxy visualization built with modern web technologies. This project is a complete modernization of the original [Blueyard Galaxy](https://blueyard.github.io/galaxy/) website, enhanced with Next.js, TypeScript, and advanced Three.js features.
-
-![Galaxy Visualization](https://via.placeholder.com/800x400/1a1a2e/4f46e5?text=Interactive+Galaxy+Visualization)
+A stunning, interactive 3D galaxy visualization built with modern web technologies. This project is a complete modernization of the original [Blueyard Galaxy](https://web.archive.org/web/20240919084727/https://blueyard.com/galaxy) website, enhanced with Next.js, TypeScript, and advanced Three.js features.
 
 ## ✨ Features
 
