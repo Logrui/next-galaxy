@@ -37,6 +37,12 @@ A stunning, interactive 3D galaxy visualization built with modern web technologi
 
 ## 📦 Installation
 
+### **Prerequisites**
+- **Node.js** 18.0 or later ([Download here](https://nodejs.org/))
+- **Git** for cloning the repository
+- **Modern web browser** with WebGL support
+
+### **Quick Start**
 1. **Clone the repository**
    ```bash
    git clone https://github.com/Logrui/next-galaxy.git
@@ -57,6 +63,23 @@ A stunning, interactive 3D galaxy visualization built with modern web technologi
    ```
    http://localhost:3000
    ```
+
+### **Available Scripts**
+- `npm run dev` - Start development server with Turbopack (fastest)
+- `npm run build` - Build for production with Turbopack
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint for code quality
+
+### **Development Notes**
+- **Turbopack**: The project uses Next.js with Turbopack for extremely fast development builds
+- **Hot Reload**: Changes to components automatically refresh the browser
+- **TypeScript**: Full TypeScript support with strict type checking
+- **ESLint**: Code quality checks run automatically in development
+
+### **System Requirements**
+- **Memory**: At least 4GB RAM recommended for smooth performance
+- **Graphics**: WebGL-compatible GPU for optimal 3D rendering
+- **Storage**: ~200MB for dependencies and build files
 
 ## 🎯 Key Components
 
@@ -115,21 +138,47 @@ Six carefully crafted camera viewpoints:
 
 ### **Vercel (Recommended)**
 ```bash
+# Install Vercel CLI
 npm install -g vercel
+
+# Deploy to production
 vercel --prod
 ```
 
 ### **Netlify**
 ```bash
+# Build the project
 npm run build
-# Upload the .next folder to Netlify
+
+# Deploy the .next folder to Netlify
+# Netlify will automatically detect Next.js
 ```
 
-### **GitHub Pages**
+### **Manual Deployment**
 ```bash
+# Build for production
 npm run build
-npm run export
-# Upload the out folder to GitHub Pages
+
+# Start production server
+npm run start
+```
+
+### **Docker Deployment**
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+### **Static Export (for GitHub Pages)**
+```bash
+# Note: Next.js 15 with Turbopack doesn't support static export
+# Use a different deployment method for static hosting
 ```
 
 ## 📁 Project Structure
