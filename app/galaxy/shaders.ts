@@ -310,14 +310,12 @@ void main () {
     dsP *= mix(0.35, 0.05, collapse); // shrink further as dyingMix approaches 1
     // Scale intensifies and then diminishes
     float dsScale = baseScale * mix(1.5, 0.4, collapse);
-    // Recompute galaxy color distribution for dying star
-    float dsRadius = sqrt(dsP.x*dsP.x+dsP.y*dsP.y);
-    vec3 dsColor = mix(color1, color2, smoothstep(0., 100.0, dsRadius));
-    dsColor = mix(dsColor, color3, smoothstep(100., 200.0, dsRadius));
-    // Blend dying star on top
-    p = mix(baseP, dsP, dyingMix);
-    ptScale = mix(baseScale, dsScale, dyingMix);
-    vColor = mix(baseColor, dsColor, dyingMix);
+  // Use the galaxyColor (from pGalaxy) for dying star color, to match Galaxy phase
+  vec3 dsColor = galaxyColor;
+  // Blend dying star on top
+  p = mix(baseP, dsP, dyingMix);
+  ptScale = mix(baseScale, dsScale, dyingMix);
+  vColor = mix(baseColor, dsColor, dyingMix);
   } else {
     p = baseP;
     ptScale = baseScale;
