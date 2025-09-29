@@ -224,27 +224,52 @@ export default function GalaxyCanvas() {
       depthWrite: false,
     });
 
-    // Geometry (nebula: ellipsoidal, center-weighted, noise-perturbed)
+    // Geometry (nebula: highly organic, pronounced oval, axis warping, voids/arms)
     const Im = 32768;
     const s = new Float32Array(Im * 3);
     const nebulaRadius = 300;
+    function perlin3(x: number, y: number, z: number): number {
+      // Simple fake 3D noise using Math.sin/cos for organic clumping
+      return (
+        Math.sin(x * 0.013 + Math.cos(y * 0.021) + z * 0.017) +
+        Math.cos(y * 0.008 + z * 0.019) +
+        Math.sin(z * 0.011 + x * 0.007)
+      ) * 0.5;
+    }
     for (let r = 0; r < Im; r++) {
       const o = r * 3;
       // Spherical coordinates
       const u = Math.random();
       const v = Math.random();
-      // Center-weighted: r^1.8 for denser core, wispy edge
-      const radius = nebulaRadius * Math.pow(u, 1.8);
+      // Center-weighted: r^1.5 for denser core, wispy edge
+      let radius = nebulaRadius * Math.pow(u, 1.5);
       const theta = 2 * Math.PI * v;
       const phi = Math.acos(2 * Math.random() - 1);
-      // Ellipsoidal scaling (z squashed)
-      let x = radius * Math.sin(phi) * Math.cos(theta);
-      let y = radius * Math.sin(phi) * Math.sin(theta);
-      let z = radius * Math.cos(phi) * 0.65;
-      // Add some noise for organic look
-      x += 30 * (Math.random() - 0.5);
-      y += 30 * (Math.random() - 0.5);
-      z += 30 * (Math.random() - 0.5);
+      // Pronounced oval: stretch x axis, squash z axis
+      let ax = 1.45 + 0.25 * Math.sin(r * 0.0007);
+      let ay = 1.0 + 0.18 * Math.cos(r * 0.0005);
+      let az = 0.55 + 0.18 * Math.sin(r * 0.0009 + 1.2);
+      // Clumpy density: modulate radius by large-scale noise
+      const clump = 0.7 + 0.5 * perlin3(
+        Math.cos(theta) * 80,
+        Math.sin(phi) * 80,
+        Math.cos(phi) * 80
+      );
+      // Large-scale voids/arms
+      const arm = 0.7 + 0.5 * Math.sin(theta * 2 + phi * 1.5 + perlin3(theta * 2, phi * 2, r * 0.0001));
+      radius *= clump * arm;
+      // Base position
+      let x = radius * Math.sin(phi) * Math.cos(theta) * ax;
+      let y = radius * Math.sin(phi) * Math.sin(theta) * ay;
+      let z = radius * Math.cos(phi) * az;
+      // Multi-scale noise for organic look
+      x += 50 * perlin3(x * 0.03, y * 0.03, z * 0.03);
+      y += 50 * perlin3(y * 0.025, z * 0.025, x * 0.025);
+      z += 50 * perlin3(z * 0.021, x * 0.021, y * 0.021);
+      // Small random jitter
+      x += 20 * (Math.random() - 0.5);
+      y += 20 * (Math.random() - 0.5);
+      z += 20 * (Math.random() - 0.5);
       s[o] = x;
       s[o + 1] = y;
       s[o + 2] = z;
