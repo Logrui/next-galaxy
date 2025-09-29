@@ -11,7 +11,7 @@ varying float vScale;
 uniform float phaseMix; // 0=nebula 1=galaxy
 uniform float dyingMix; // 0=normal, 1=dying star condensed
 uniform bool nebula; // legacy (ignored in new morph logic, retained for compatibility)
-uniform float dyingMix; // dying star blend factor
+// (Removed duplicate dyingMix uniform declaration)
 varying float depth;
 varying float fogDepth;
 uniform bool glow;
