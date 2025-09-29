@@ -210,6 +210,7 @@ export default function GalaxyCanvas() {
       interaction: { value: new THREE.Vector4(0,0,0,0) },
       iRadius: { value: 11 },
       nebulaAmp: { value: 1.5 }, // Reduced from 5 to make particles wiggle less
+  phaseMix: { value: 1.0 }, // 0 = nebula, 1 = galaxy (morph control)
     };
 
     const material = new THREE.RawShaderMaterial({
