@@ -297,7 +297,7 @@ void main () {
   float baseScale = mix(nebulaScale, galaxyScale, blend);
   vec3 baseColor = mix(nebulaColor, galaxyColor, blend);
 
-  // Dying star (condensed nebula collapse toward origin, but use galaxy color scheme)
+  // Dying star (condensed nebula collapse toward origin, but use per-particle galaxy color distribution)
   if(dyingMix > 0.001) {
     float collapse = dyingMix; // linear ease for now
     // Pull positions toward origin and add inward noise swirl
@@ -310,8 +310,10 @@ void main () {
     dsP *= mix(0.35, 0.05, collapse); // shrink further as dyingMix approaches 1
     // Scale intensifies and then diminishes
     float dsScale = baseScale * mix(1.5, 0.4, collapse);
-    // Use the galaxy color scheme for dying star
-    vec3 dsColor = galaxyColor;
+    // Recompute galaxy color distribution for dying star
+    float dsRadius = sqrt(dsP.x*dsP.x+dsP.y*dsP.y);
+    vec3 dsColor = mix(color1, color2, smoothstep(0., 100.0, dsRadius));
+    dsColor = mix(dsColor, color3, smoothstep(100., 200.0, dsRadius));
     // Blend dying star on top
     p = mix(baseP, dsP, dyingMix);
     ptScale = mix(baseScale, dsScale, dyingMix);
