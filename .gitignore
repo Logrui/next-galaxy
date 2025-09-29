@@ -9,9 +9,9 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-.next
-.specify
-.windsurf
+/.next
+/.specify
+/.windsurf
 
 # testing
 /coverage

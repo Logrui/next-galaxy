@@ -61,7 +61,7 @@ A stunning, interactive 3D galaxy visualization built with modern web technologi
 
 4. **Open your browser**
    ```
-   http://localhost:3000
+   http://localhost:9999
    ```
 
 ### **Available Scripts**
@@ -171,7 +171,7 @@ COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
 RUN npm run build
-EXPOSE 3000
+EXPOSE 9999
 CMD ["npm", "start"]
 ```
 
