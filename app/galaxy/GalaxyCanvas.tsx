@@ -224,58 +224,30 @@ export default function GalaxyCanvas() {
       depthWrite: false,
     });
 
-    // Geometry (nebula: highly organic, pronounced oval, axis warping, voids/arms)
+    // Geometry
     const Im = 32768;
     const s = new Float32Array(Im * 3);
-    const nebulaRadius = 300;
-    function perlin3(x: number, y: number, z: number): number {
-      // Simple fake 3D noise using Math.sin/cos for organic clumping
-      return (
-        Math.sin(x * 0.013 + Math.cos(y * 0.021) + z * 0.017) +
-        Math.cos(y * 0.008 + z * 0.019) +
-        Math.sin(z * 0.011 + x * 0.007)
-      ) * 0.5;
-    }
-    let i = 0;
-    while (i < Im) {
-      // Shell bias: sample radius so most points are near the outer shell
-      const shellBias = 0.82 + 0.18 * Math.pow(Math.random(), 2.5); // 0.82-1.0, most near 1
-      const radius = nebulaRadius * shellBias;
-      const theta = 2 * Math.PI * Math.random();
-      const phi = Math.acos(2 * Math.random() - 1);
-      // Pronounced oval: stretch x axis, squash z axis
-      let ax = 1.45 + 0.25 * Math.sin(i * 0.0007);
-      let ay = 1.0 + 0.18 * Math.cos(i * 0.0005);
-      let az = 0.55 + 0.18 * Math.sin(i * 0.0009 + 1.2);
-      // Base position
-      let x = radius * Math.sin(phi) * Math.cos(theta) * ax;
-      let y = radius * Math.sin(phi) * Math.sin(theta) * ay;
-      let z = radius * Math.cos(phi) * az;
-      // Large-scale voids/arms
-      const clump = 0.7 + 0.5 * perlin3(
-        Math.cos(theta) * 80,
-        Math.sin(phi) * 80,
-        Math.cos(phi) * 80
-      );
-      const arm = 0.7 + 0.5 * Math.sin(theta * 2 + phi * 1.5 + perlin3(theta * 2, phi * 2, i * 0.0001));
-      x *= clump * arm;
-      y *= clump * arm;
-      z *= clump * arm;
-      // Multi-scale noise for organic look
-      x += 50 * perlin3(x * 0.03, y * 0.03, z * 0.03);
-      y += 50 * perlin3(y * 0.025, z * 0.025, x * 0.025);
-      z += 50 * perlin3(z * 0.021, x * 0.021, y * 0.021);
-      // Small random jitter
-      x += 20 * (Math.random() - 0.5);
-      y += 20 * (Math.random() - 0.5);
-      z += 20 * (Math.random() - 0.5);
-      // Exclude very center (avoid cubic core)
-      if (Math.sqrt(x * x + y * y + z * z) < nebulaRadius * 0.45) continue;
-      const o = i * 3;
-      s[o] = x;
-      s[o + 1] = y;
-      s[o + 2] = z;
-      i++;
+    const e = 300;
+    for (let r = 0; r < Im; r++) {
+  // Solid sphere nebula with organic noise and central concentration
+  const o = r * 3;
+  // Spherical coordinates
+  const theta = Math.acos(1 - 2 * Math.random()); // [0, pi]
+  const phi = 2 * Math.PI * Math.random(); // [0, 2pi]
+  // Bias radius toward center for higher central density
+  // Use a power < 1 for more central concentration (e.g., 0.5 = sqrt)
+  let baseRadius = Math.pow(Math.random(), 0.5) * e;
+  // Multi-scale organic noise
+  let noise = 0;
+  noise += 32 * (Math.random() - 0.5); // coarse
+  noise += 16 * (Math.random() - 0.5); // medium
+  noise += 8 * (Math.random() - 0.5);  // fine
+  noise += 4 * (Math.random() - 0.5);  // extra fine
+  let radius = Math.max(0, baseRadius + noise); // keep inside sphere
+  // Convert to Cartesian
+  s[o] = radius * Math.sin(theta) * Math.cos(phi);
+  s[o + 1] = radius * Math.sin(theta) * Math.sin(phi);
+  s[o + 2] = radius * Math.cos(theta);
     }
     const t = new Float32Array(Im * 2);
     let n = 0;

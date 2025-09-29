@@ -303,7 +303,7 @@ void main () {
       snoise(vec3(baseP.xy*0.02, swirlT)),
       snoise(vec3(baseP.yx*0.02, swirlT*1.1))
     );
-    dsP *= mix(0.35, 0.05, collapse); // shrink further as dyingMix approaches 1
+  dsP *= mix(0.5, 0.2, collapse); // shrink further as dyingMix approaches 1
     // Scale intensifies and then diminishes
     float dsScale = baseScale * mix(1.5, 0.4, collapse);
   // Use the galaxyColor (from pGalaxy) for dying star color, to match Galaxy phase
