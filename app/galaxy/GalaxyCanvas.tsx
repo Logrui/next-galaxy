@@ -211,6 +211,7 @@ export default function GalaxyCanvas() {
       iRadius: { value: 11 },
       nebulaAmp: { value: 1.5 }, // Reduced from 5 to make particles wiggle less
   phaseMix: { value: 1.0 }, // 0 = nebula, 1 = galaxy (morph control)
+  dyingMix: { value: 0.0 }, // 0 = normal, 1 = dying star collapse
     };
 
     const material = new THREE.RawShaderMaterial({
@@ -489,23 +490,35 @@ export default function GalaxyCanvas() {
       <div style="display:flex; gap:6px;">
         <button id="btn-nebula" style="flex:1; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Nebula</button>
         <button id="btn-galaxy" style="flex:1; background:rgba(120,160,255,0.35); box-shadow:0 0 0 1px rgba(140,170,255,0.6) inset; border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Galaxy</button>
+        <button id="btn-dying" style="flex:1; background:linear-gradient(135deg, rgba(255,140,120,0.35), rgba(180,60,255,0.35)); border:1px solid rgba(255,255,255,0.45); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Dying</button>
       </div>
-      <div id="phase-status" style="opacity:.8; font-size:10px; letter-spacing:.5px;">Active: Galaxy (phaseMix=1)</div>
+      <div id="phase-status" style="opacity:.8; font-size:10px; letter-spacing:.5px;">Active: Galaxy (phaseMix=1, dyingMix=0)</div>
     `;
     el.appendChild(phasePanel);
     requestAnimationFrame(positionPhasePanel);
 
-    const nebulaBtn = phasePanel.querySelector('#btn-nebula') as HTMLButtonElement | null;
-    const galaxyBtn = phasePanel.querySelector('#btn-galaxy') as HTMLButtonElement | null;
+  const nebulaBtn = phasePanel.querySelector('#btn-nebula') as HTMLButtonElement | null;
+  const galaxyBtn = phasePanel.querySelector('#btn-galaxy') as HTMLButtonElement | null;
+  const dyingBtn = phasePanel.querySelector('#btn-dying') as HTMLButtonElement | null;
     const statusEl = phasePanel.querySelector('#phase-status') as HTMLDivElement | null;
 
-    function setActiveButton(target: 'nebula' | 'galaxy') {
-      if (!nebulaBtn || !galaxyBtn) return;
-      const activeStyles = 'background:rgba(120,160,255,0.35); box-shadow:0 0 0 1px rgba(140,170,255,0.6) inset;';
-      const baseStyles = 'background:rgba(255,255,255,0.12); box-shadow:none;';
-      nebulaBtn.style.cssText = nebulaBtn.style.cssText.replace(/background:[^;]+;?/,'').replace(/box-shadow:[^;]+;?/,'') + (target==='nebula'?activeStyles:baseStyles);
-      galaxyBtn.style.cssText = galaxyBtn.style.cssText.replace(/background:[^;]+;?/,'').replace(/box-shadow:[^;]+;?/,'') + (target==='galaxy'?activeStyles:baseStyles);
-      if (statusEl) statusEl.textContent = `Active: ${target==='nebula' ? 'Nebula' : 'Galaxy'}`;
+    function setActiveButton(target: 'nebula' | 'galaxy' | 'dying') {
+      if (!nebulaBtn || !galaxyBtn || !dyingBtn) return;
+      const base = (el: HTMLElement) => {
+        el.style.boxShadow = 'none';
+        el.style.background = el.id === 'btn-dying'
+          ? 'linear-gradient(135deg, rgba(255,140,120,0.35), rgba(180,60,255,0.35))'
+          : 'rgba(255,255,255,0.12)';
+      };
+      [nebulaBtn, galaxyBtn, dyingBtn].forEach(base);
+      const highlight = (el: HTMLElement) => {
+        el.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.7) inset';
+        el.style.background = 'rgba(120,160,255,0.45)';
+      };
+      if (target === 'nebula') highlight(nebulaBtn);
+      else if (target === 'galaxy') highlight(galaxyBtn);
+      else highlight(dyingBtn);
+      if (statusEl) statusEl.textContent = `Active: ${target==='nebula' ? 'Nebula' : target==='galaxy' ? 'Galaxy' : 'Dying Star'} (phaseMix=${uniforms.phaseMix.value.toFixed(2)}, dyingMix=${uniforms.dyingMix.value.toFixed(2)})`;
     }
 
     // Legacy fade (still available for other UI fades)
@@ -532,16 +545,35 @@ export default function GalaxyCanvas() {
       }
       requestAnimationFrame(step);
     }
+    function animateDying(target: number, duration = 1600) {
+      const startVal = uniforms.dyingMix?.value ?? 0.0;
+      if (!uniforms.dyingMix) return;
+      if (Math.abs(startVal - target) < 0.0001) return;
+      const startTime = performance.now();
+      function step(now: number) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const eased = t * t * (3.0 - 2.0 * t);
+        uniforms.dyingMix.value = startVal + (target - startVal) * eased;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
 
     nebulaBtn?.addEventListener('click', () => {
-      setActiveButton('nebula');
+      animateDying(0.0, 900); // ensure dying collapses off
       animatePhase(0.0, 1500);
-      if (statusEl) statusEl.textContent = 'Active: Nebula (phaseMix→0)';
+      setActiveButton('nebula');
     });
     galaxyBtn?.addEventListener('click', () => {
-      setActiveButton('galaxy');
+      animateDying(0.0, 900);
       animatePhase(1.0, 1500);
-      if (statusEl) statusEl.textContent = 'Active: Galaxy (phaseMix→1)';
+      setActiveButton('galaxy');
+    });
+    dyingBtn?.addEventListener('click', () => {
+      // Pull toward nebula form then collapse
+      animatePhase(0.0, 1200);
+      animateDying(1.0, 1800);
+      setActiveButton('dying');
     });
 
     setActiveButton('galaxy');

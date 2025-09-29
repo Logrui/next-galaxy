@@ -8,8 +8,10 @@ uniform float superOpacity;
 varying vec3 vColor;
 varying float vScale;
 // phaseMix: 0.0 = pure nebula, 1.0 = pure galaxy
-uniform float phaseMix;
+uniform float phaseMix; // 0=nebula 1=galaxy
+uniform float dyingMix; // 0=normal, 1=dying star condensed
 uniform bool nebula; // legacy (ignored in new morph logic, retained for compatibility)
+uniform float dyingMix; // dying star blend factor
 varying float depth;
 varying float fogDepth;
 uniform bool glow;
@@ -286,11 +288,38 @@ void main () {
     galaxyColor = mix(galaxyColor, color3, smoothstep(100., 200.0, radius));
   }
 
-  // Blend paths
+  // Blend primary two phases
   float blend = clamp(phaseMix, 0.0, 1.0);
-  p = mix(pNebula, pGalaxy, blend);
-  ptScale = mix(nebulaScale, galaxyScale, blend);
-  vColor = mix(nebulaColor, galaxyColor, blend);
+  vec3 baseP = mix(pNebula, pGalaxy, blend);
+  float baseScale = mix(nebulaScale, galaxyScale, blend);
+  vec3 baseColor = mix(nebulaColor, galaxyColor, blend);
+
+  // Dying star (condensed nebula collapse toward origin with intensifying color)
+  if(dyingMix > 0.001) {
+    float collapse = dyingMix; // linear ease for now
+    // Pull positions toward origin and add inward noise swirl
+    vec3 dsP = baseP;
+    float swirlT = time * 0.2;
+    dsP.xy += 40.0 * (1.0-collapse) * vec2(
+      snoise(vec3(baseP.xy*0.02, swirlT)),
+      snoise(vec3(baseP.yx*0.02, swirlT*1.1))
+    );
+    dsP *= mix(0.35, 0.05, collapse); // shrink further as dyingMix approaches 1
+    // Scale intensifies and then diminishes
+    float dsScale = baseScale * mix(1.5, 0.4, collapse);
+    // Color shift toward hot white core then dim magenta edge
+    vec3 hot = vec3(1.0, 0.95, 0.85);
+    vec3 mag = vec3(0.8, 0.2, 0.95);
+    vec3 dsColor = mix(mag, hot, smoothstep(0.0, 0.6, 1.0 - collapse));
+    // Blend dying star on top
+    p = mix(baseP, dsP, dyingMix);
+    ptScale = mix(baseScale, dsScale, dyingMix);
+    vColor = mix(baseColor, dsColor, dyingMix);
+  } else {
+    p = baseP;
+    ptScale = baseScale;
+    vColor = baseColor;
+  }
 
   vLevels = step(10., length(p));
 
