@@ -23,12 +23,6 @@ export const CAMERA_PRESETS: CameraPreset[] = [
     description: "Default elevated overview of the galaxy"
   },
   {
-    name: "Start",
-    position: { x: 318, y: 1050, z: 1900 },
-    target: { x: 0, y: 0, z: 0 },
-    description: "Elevated forward start view toward galaxy center"
-  },
-  {
     name: "Top Down",
     position: { x: 407.2, y: 298.2, z: 205 },
     target: { x: 0, y: 0, z: 0 },
@@ -39,12 +33,6 @@ export const CAMERA_PRESETS: CameraPreset[] = [
     position: { x: 400, y: 0, z: 0 },
     target: { x: 0, y: 0, z: 0 },
     description: "Profile view from the side"
-  },
-  {
-    name: "Side View 2",
-    position: { x: -400, y: 0, z: 0 },
-    target: { x: 0, y: 0, z: 0 },
-    description: "Profile view from the opposite side"
   },
   {
     name: "Close Up",
@@ -65,6 +53,13 @@ export const CAMERA_PRESETS: CameraPreset[] = [
     description: "Diagonal view from corner perspective"
   }
 ];
+// Add Big Bang preset
+CAMERA_PRESETS.unshift({
+  name: 'Big Bang',
+  description: 'Earliest moment, close to origin',
+  position: { x: 29, y: 12.2, z: 15.1 },
+  target: { x: 2.5, y: -2.6, z: -1.7 }
+});
 
 export function applyCameraPreset(camera: THREE.Camera, controls: any, preset: CameraPreset): void {
   camera.position.set(preset.position.x, preset.position.y, preset.position.z);
