@@ -121,6 +121,88 @@ export default function GalaxyCanvas() {
     el.appendChild(presetButtons);
     presetButtonsRef.current = presetButtons;
 
+    // Phase toggle panel
+    const phasePanel = document.createElement('div');
+    phasePanel.style.cssText = `
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid rgba(255,255,255,0.2);
+      min-width: 140px;
+    `;
+    phasePanel.innerHTML = `
+      <div style="font-weight:bold;">Phase</div>
+      <div style="display:flex; gap:6px;">
+        <button id="btn-nebula" style="flex:1; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Nebula</button>
+        <button id="btn-galaxy" style="flex:1; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Galaxy</button>
+      </div>
+      <div id="phase-status" style="opacity:.8; font-size:10px; letter-spacing:.5px;">Active: Nebula</div>
+    `;
+    el.appendChild(phasePanel);
+
+    const nebulaBtn = phasePanel.querySelector('#btn-nebula') as HTMLButtonElement | null;
+    const galaxyBtn = phasePanel.querySelector('#btn-galaxy') as HTMLButtonElement | null;
+    const statusEl = phasePanel.querySelector('#phase-status') as HTMLDivElement | null;
+
+    function setActiveButton(target: 'nebula' | 'galaxy') {
+      if (!nebulaBtn || !galaxyBtn) return;
+      const activeStyles = 'background:rgba(120,160,255,0.35); box-shadow:0 0 0 1px rgba(140,170,255,0.6) inset;';
+      const baseStyles = 'background:rgba(255,255,255,0.12); box-shadow:none;';
+      nebulaBtn.style.cssText = nebulaBtn.style.cssText.replace(/background:[^;]+;?/,'')
+        .replace(/box-shadow:[^;]+;?/,'') + (target==='nebula'?activeStyles:baseStyles);
+      galaxyBtn.style.cssText = galaxyBtn.style.cssText.replace(/background:[^;]+;?/,'')
+        .replace(/box-shadow:[^;]+;?/,'') + (target==='galaxy'?activeStyles:baseStyles);
+      if (statusEl) statusEl.textContent = `Active: ${target==='nebula' ? 'Nebula' : 'Galaxy'}`;
+    }
+
+    // Smooth transition helper
+    function animateFade(from: number, to: number, duration = 800) {
+      const start = performance.now();
+      function step(now: number) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = t * t * (3 - 2 * t); // smoothstep ease
+        uniforms.fade.value = from + (to - from) * eased;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    nebulaBtn?.addEventListener('click', () => {
+      if (!uniforms.nebula.value) {
+        // Transition back: fade up then switch
+        animateFade(uniforms.fade.value, 1, 500);
+        setTimeout(() => {
+          uniforms.nebula.value = true;
+          animateFade(1, 0, 800);
+          setActiveButton('nebula');
+        }, 500);
+      }
+    });
+
+    galaxyBtn?.addEventListener('click', () => {
+      if (uniforms.nebula.value) {
+        // Transition forward: raise fade to expose late-stage, then drop
+        animateFade(uniforms.fade.value, 1, 500);
+        setTimeout(() => {
+          uniforms.nebula.value = false;
+          animateFade(1, 0, 800);
+          setActiveButton('galaxy');
+        }, 500);
+      }
+    });
+
+    setActiveButton('nebula');
+
     // Add click handlers for preset buttons
     CAMERA_PRESETS.forEach((preset, index) => {
       const button = presetButtons.querySelector(`#preset-${index}`);
@@ -470,6 +552,9 @@ export default function GalaxyCanvas() {
       }
       if (presetButtonsRef.current && el.contains(presetButtonsRef.current)) {
         el.removeChild(presetButtonsRef.current);
+      }
+      if (phasePanel && el.contains(phasePanel)) {
+        el.removeChild(phasePanel);
       }
     };
   }, [isClient]);
