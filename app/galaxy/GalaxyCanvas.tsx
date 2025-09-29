@@ -224,15 +224,30 @@ export default function GalaxyCanvas() {
       depthWrite: false,
     });
 
-    // Geometry
+    // Geometry (nebula: ellipsoidal, center-weighted, noise-perturbed)
     const Im = 32768;
     const s = new Float32Array(Im * 3);
-    const e = 300;
+    const nebulaRadius = 300;
     for (let r = 0; r < Im; r++) {
       const o = r * 3;
-      s[o] = random.range(-e, e);
-      s[o + 1] = random.range(-e, e);
-      s[o + 2] = random.range(-e, e);
+      // Spherical coordinates
+      const u = Math.random();
+      const v = Math.random();
+      // Center-weighted: r^1.8 for denser core, wispy edge
+      const radius = nebulaRadius * Math.pow(u, 1.8);
+      const theta = 2 * Math.PI * v;
+      const phi = Math.acos(2 * Math.random() - 1);
+      // Ellipsoidal scaling (z squashed)
+      let x = radius * Math.sin(phi) * Math.cos(theta);
+      let y = radius * Math.sin(phi) * Math.sin(theta);
+      let z = radius * Math.cos(phi) * 0.65;
+      // Add some noise for organic look
+      x += 30 * (Math.random() - 0.5);
+      y += 30 * (Math.random() - 0.5);
+      z += 30 * (Math.random() - 0.5);
+      s[o] = x;
+      s[o + 1] = y;
+      s[o + 2] = z;
     }
     const t = new Float32Array(Im * 2);
     let n = 0;
