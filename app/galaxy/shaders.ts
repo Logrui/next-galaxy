@@ -267,29 +267,25 @@ void main () {
     pNebula = mix(pNebula, pNebula+pNoise, pt);
   }
 
-  // Galaxy path
+  // Galaxy path (always compute color for Dying Star phase)
   vec3 pGalaxy = p;
   float galaxyScale = ptScale;
-  vec3 galaxyColor = color1;
-  if(phaseMix > 0.001) {
-    float progress = smoothstep(envStart, duration, time);
-    float r = .5 * rand(position.xz * .01);
-    progress = smoothstep(r, 1., progress);
+  float galaxyProgress = smoothstep(envStart, duration, time);
+  float galaxyR = .5 * rand(position.xz * .01);
+  galaxyProgress = smoothstep(galaxyR, 1., galaxyProgress);
 
-    pGalaxy.x += 100.0 * sin(time*.01 + pGalaxy.x);
-    pGalaxy.y += 100.0 * cos(time*.02 + pGalaxy.y);
-    pGalaxy.z += 100.0 * sin(time*.026 + pGalaxy.z);
+  pGalaxy.x += 100.0 * sin(time*.01 + pGalaxy.x);
+  pGalaxy.y += 100.0 * cos(time*.02 + pGalaxy.y);
+  pGalaxy.z += 100.0 * sin(time*.026 + pGalaxy.z);
 
-    progress = qinticOut(progress);
-    galaxyScale *= smoothstep(0.0, 0.2, progress);
+  galaxyProgress = qinticOut(galaxyProgress);
+  galaxyScale *= smoothstep(0.0, 0.2, galaxyProgress);
 
-    pGalaxy *= progress;
+  pGalaxy *= galaxyProgress;
 
-    float radius = sqrt(pGalaxy.x*pGalaxy.x+pGalaxy.y*pGalaxy.y);
-
-    galaxyColor = mix(color1, color2, smoothstep(0., 100.0, radius));
-    galaxyColor = mix(galaxyColor, color3, smoothstep(100., 200.0, radius));
-  }
+  float galaxyRadius = sqrt(pGalaxy.x*pGalaxy.x+pGalaxy.y*pGalaxy.y);
+  vec3 galaxyColor = mix(color1, color2, smoothstep(0., 100.0, galaxyRadius));
+  galaxyColor = mix(galaxyColor, color3, smoothstep(100., 200.0, galaxyRadius));
 
   // Blend primary two phases
   float blend = clamp(phaseMix, 0.0, 1.0);
