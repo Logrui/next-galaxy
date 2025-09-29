@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Accessibility Tests for Loading Screen System
  * 

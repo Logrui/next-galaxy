@@ -11,22 +11,8 @@ import { fragmentSource, vertexSource } from './shaders';
 import sayHello from '../utils/sayHello';
 import { CAMERA_PRESETS, applyCameraPreset } from './location_presets';
 import { createCameraAnimator, CameraAnimator } from './camera_animator';
-import { ParticleSystem } from './ParticleSystem';
-import { ParticleSystemState } from '../components/loading/types';
-import { WebGLContextManager } from '../utils/WebGLContextManager';
-import { AssetManager } from '../utils/AssetManager';
-import { PerformanceMonitor, PerformanceOptimization } from '../utils/PerformanceMonitor';
-import { getOptimalParticleCount } from '../utils/PerformanceConfig';
 
-export interface GalaxyCanvasProps {
-  loadingParticleState?: ParticleSystemState;
-  onLoadingComplete?: () => void;
-}
-
-export default function GalaxyCanvas({ 
-  loadingParticleState, 
-  onLoadingComplete 
-}: GalaxyCanvasProps = {}) {
+export default function GalaxyCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const debugSphereRef = useRef<THREE.Mesh | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
@@ -50,21 +36,16 @@ export default function GalaxyCanvas({
     // Console branding like original
     sayHello();
 
-    // Get shared WebGL context manager
-    const contextManager = WebGLContextManager.getInstance();
-    
-    // Initialize or reuse shared renderer
-    const renderer = contextManager.initialize(el, {
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance'
-    });
-    
-    // Configure canvas for galaxy interaction
-    contextManager.setCanvasLayer(1); // Base layer for galaxy
-    contextManager.setPointerEvents(true); // Enable interaction for galaxy controls
-    
-    // The canvas is already added to the container by the context manager
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(el.clientWidth, el.clientHeight);
+    // Three r150+: use outputColorSpace instead of outputEncoding
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // physicallyCorrectLights was removed in Three.js r150+ - lighting is now physically correct by default
+    renderer.autoClear = false;
+
+    el.appendChild(renderer.domElement);
 
     // Create camera position display
     const cameraInfo = document.createElement('div');
@@ -227,11 +208,6 @@ export default function GalaxyCanvas({
       interaction: { value: new THREE.Vector4(0,0,0,0) },
       iRadius: { value: 11 },
       nebulaAmp: { value: 1.5 }, // Reduced from 5 to make particles wiggle less
-      orbitSpeed: { value: 1.0 },
-      interactionRadiusMultiplier: { value: 1.0 },
-      planetRadiusMultiplier: { value: 1.0 },
-      influenceStrength: { value: 1.0 },
-      ringNoiseAmp: { value: 4.0 },
     };
 
     const material = new THREE.RawShaderMaterial({
@@ -244,62 +220,33 @@ export default function GalaxyCanvas({
       depthWrite: false,
     });
 
-    // Enhanced Particle System with loading integration
-    const optimalParticleCount = getOptimalParticleCount();
-    
-    const particleSystemConfig = {
-      particleCount: optimalParticleCount,
-      colors: {
-        cyan: new THREE.Color(0x0891b2),
-        blue: new THREE.Color(0x3b82f6),
-        magenta: new THREE.Color(0xec4899)
-      },
-      explosionCenter: new THREE.Vector3(0, 0, 0),
-      webglContext: renderer.getContext(),
-      performanceLevel: 'high' as const
-    };
-
-    const particleSystem = new ParticleSystem(particleSystemConfig, uniforms);
-    particleSystem.setMaterial(material);
-    
-    const points = particleSystem.getPoints();
-    scene.add(points);
-
-    // Start performance monitoring for galaxy
-    const perfMonitor = PerformanceMonitor.getInstance({
-      targetFps: 60,
-      maxParticles: optimalParticleCount,
-      adaptiveQuality: true
-    });
-    
-    perfMonitor.start();
-    perfMonitor.updateParticleCount(optimalParticleCount);
-    
-    // Listen for optimization suggestions
-    const unsubscribeOptimization = perfMonitor.onOptimization((optimization: PerformanceOptimization) => {
-      console.log('Performance optimization suggested:', optimization);
-      
-      // Apply optimizations to renderer and system
-      if (optimization.pixelRatio !== renderer.getPixelRatio()) {
-        renderer.setPixelRatio(optimization.pixelRatio);
-      }
-      
-      // Apply particle count reduction if needed
-      if (optimization.particleReduction > 0) {
-        const newCount = Math.floor(optimalParticleCount * (1 - optimization.particleReduction / 100));
-        perfMonitor.updateParticleCount(newCount);
-        // Note: Actual particle system updates would need to be implemented in ParticleSystem class
-      }
-    });
-
-    // Handle loading screen particle handoff
-    if (loadingParticleState) {
-      particleSystem.receiveLoadingHandoff(loadingParticleState);
-      // Notify parent that loading integration is complete
-      setTimeout(() => {
-        onLoadingComplete?.();
-      }, 100);
+    // Geometry
+    const Im = 32768;
+    const s = new Float32Array(Im * 3);
+    const e = 300;
+    for (let r = 0; r < Im; r++) {
+      const o = r * 3;
+      s[o] = random.range(-e, e);
+      s[o + 1] = random.range(-e, e);
+      s[o + 2] = random.range(-e, e);
     }
+    const t = new Float32Array(Im * 2);
+    let n = 0;
+    for (let r = 0; r < 128; r++) {
+      for (let o = 0; o < 256; o++) {
+        t[n * 2] = 1 / 256 + o / 257;
+        t[n * 2 + 1] = 1 / 128 + r / 129;
+        n++;
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(s, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(t, 2));
+
+    const points = new THREE.Points(geo, material);
+    points.rotation.x = Math.PI / 2;
+    scene.add(points);
 
     // Central sphere
     const sphere = new THREE.Mesh(
@@ -341,11 +288,6 @@ export default function GalaxyCanvas({
       targetZ: 0,
       focalDistance: 385,
       aperture: 500,
-      orbitSpeed: 1.0,
-      interactionRadiusMultiplier: 1.0,
-      planetRadiusMultiplier: 1.0,
-      influenceStrength: 1.0,
-      ringNoiseAmp: 4.0,
     };
     
     gui.add(settings, 'progress', 0, 1, 0.01).onChange((value: number) => {
@@ -362,21 +304,6 @@ export default function GalaxyCanvas({
     });
     gui.add(settings, 'nebulaAmp', 0, 10, 0.1).onChange((value: number) => {
       uniforms.nebulaAmp.value = value;
-    });
-    gui.add(settings, 'orbitSpeed', 0.1, 10, 0.1).onChange((value: number) => {
-      uniforms.orbitSpeed.value = value;
-    });
-    gui.add(settings, 'interactionRadiusMultiplier', 0.25, 5, 0.05).onChange((value: number) => {
-      uniforms.interactionRadiusMultiplier.value = value;
-    });
-    gui.add(settings, 'planetRadiusMultiplier', 0.25, 5, 0.05).onChange((value: number) => {
-      uniforms.planetRadiusMultiplier.value = value;
-    });
-    gui.add(settings, 'influenceStrength', 0.1, 5, 0.05).onChange((value: number) => {
-      uniforms.influenceStrength.value = value;
-    });
-    gui.add(settings, 'ringNoiseAmp', 0.5, 20, 0.5).onChange((value: number) => {
-      uniforms.ringNoiseAmp.value = value;
     });
 
     // Depth of Field controls
@@ -415,36 +342,26 @@ export default function GalaxyCanvas({
       controls.update();
     });
 
-    // Load textures using AssetManager
-    const assetManager = AssetManager.getInstance();
-    
-    // Get preloaded textures or load them
-    const scaleTexture = assetManager.getTexture('scale-texture');
-    if (scaleTexture) {
-      scaleTexture.minFilter = THREE.NearestFilter;
-      scaleTexture.magFilter = THREE.NearestFilter;
-      material.uniforms.scaleTex.value = scaleTexture;
-    }
+    // Textures from Next public/
+    const loader = new THREE.TextureLoader();
+    loader.load('/scale-texture.png', (tex) => {
+      tex.minFilter = THREE.NearestFilter;
+      tex.magFilter = THREE.NearestFilter;
+      material.uniforms.scaleTex.value = tex;
+    });
+    loader.load('/color-tiles.png', (tex) => {
+      tex.minFilter = THREE.NearestFilter;
+      tex.magFilter = THREE.NearestFilter;
+      material.uniforms.color.value = tex;
+    });
 
-    const colorTexture = assetManager.getTexture('color-tiles');
-    if (colorTexture) {
-      colorTexture.minFilter = THREE.NearestFilter;
-      colorTexture.magFilter = THREE.NearestFilter;
-      material.uniforms.color.value = colorTexture;
-    }
-
-    const aniTexture = assetManager.getTexture('ani-tiles');
-    if (aniTexture) {
-      aniTexture.generateMipmaps = false;
-      aniTexture.minFilter = THREE.NearestFilter;
-      aniTexture.magFilter = THREE.NearestFilter;
-      material.uniforms.posTex.value = aniTexture;
+    new EXRLoader().load('/ani-tiles.exr', (texture) => {
+      texture.generateMipmaps = false;
+      texture.minFilter = THREE.NearestFilter;
+      texture.magFilter = THREE.NearestFilter;
+      material.uniforms.posTex.value = texture;
       animate();
-    } else {
-      // Fallback to manual loading if not preloaded (shouldn't happen with proper asset management)
-      console.warn('Galaxy textures not preloaded - falling back to manual loading');
-      animate(); // Start animation anyway
-    }
+    });
 
     // Mouse interaction using simple-input-events (like original)
     const inputEvents = createInputEvents(renderer.domElement);
@@ -529,7 +446,7 @@ export default function GalaxyCanvas({
     const onResize = () => {
       const w = el.clientWidth;
       const h = el.clientHeight;
-      contextManager.resize(w, h);
+      renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     };
@@ -542,15 +459,12 @@ export default function GalaxyCanvas({
       if (cameraAnimatorRef.current) {
         cameraAnimatorRef.current.dispose();
       }
-      
-      // Cleanup performance monitoring
-      unsubscribeOptimization();
-      perfMonitor.stop();
-      
-      // Don't dispose shared renderer or remove its canvas - context manager handles this
-      particleSystem.dispose();
+      renderer.dispose();
+      geo.dispose();
       material.dispose();
-      
+      if (el.contains(renderer.domElement)) {
+        el.removeChild(renderer.domElement);
+      }
       if (cameraInfoRef.current && el.contains(cameraInfoRef.current)) {
         el.removeChild(cameraInfoRef.current);
       }

@@ -17,7 +17,7 @@ export interface LoadingScreenProps {
   onComplete: (particleSystem: ParticleSystemState) => void;
   onError: (error: LoadingScreenError) => void;
   skipAnimation?: boolean;
-  audioPreference?: 'enabled' | 'disabled' | 'ask';
+  audioPreference?: 'enabled' | 'disabled' | 'ask' | 'silent';
 }
 
 export interface LoadingScreenState {
