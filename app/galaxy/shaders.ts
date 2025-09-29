@@ -80,6 +80,7 @@ uniform float superScale;
 uniform float scale;
 uniform float size;
 uniform bool nebula;
+uniform float phaseMix;
 
 varying float opacity;
 varying vec3 vColor;
@@ -219,11 +220,13 @@ uniform float iRadius;
 void main () {
   vec3 p = position;
   float ptScale = 1.0;
+  // Initialize base color to avoid undefined mixes
+  vColor = color1;
 
   // We compute nebula path only if fully nebula or during blend
   vec3 pNebula = p;
   float nebulaScale = ptScale;
-  vec3 nebulaColor = vColor;
+  vec3 nebulaColor = color1;
   if(phaseMix < 0.999) {
     float pr = smoothstep(0., duration, time);
     float progress = qinticOut(pr);
@@ -262,7 +265,7 @@ void main () {
   // Galaxy path
   vec3 pGalaxy = p;
   float galaxyScale = ptScale;
-  vec3 galaxyColor = vColor;
+  vec3 galaxyColor = color1;
   if(phaseMix > 0.001) {
     float progress = smoothstep(envStart, duration, time);
     float r = .5 * rand(position.xz * .01);
