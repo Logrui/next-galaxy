@@ -236,32 +236,31 @@ export default function GalaxyCanvas() {
         Math.sin(z * 0.011 + x * 0.007)
       ) * 0.5;
     }
-    for (let r = 0; r < Im; r++) {
-      const o = r * 3;
-      // Spherical coordinates
-      const u = Math.random();
-      const v = Math.random();
-      // Center-weighted: r^1.5 for denser core, wispy edge
-      let radius = nebulaRadius * Math.pow(u, 1.5);
-      const theta = 2 * Math.PI * v;
+    let i = 0;
+    while (i < Im) {
+      // Shell bias: sample radius so most points are near the outer shell
+      const shellBias = 0.82 + 0.18 * Math.pow(Math.random(), 2.5); // 0.82-1.0, most near 1
+      const radius = nebulaRadius * shellBias;
+      const theta = 2 * Math.PI * Math.random();
       const phi = Math.acos(2 * Math.random() - 1);
       // Pronounced oval: stretch x axis, squash z axis
-      let ax = 1.45 + 0.25 * Math.sin(r * 0.0007);
-      let ay = 1.0 + 0.18 * Math.cos(r * 0.0005);
-      let az = 0.55 + 0.18 * Math.sin(r * 0.0009 + 1.2);
-      // Clumpy density: modulate radius by large-scale noise
+      let ax = 1.45 + 0.25 * Math.sin(i * 0.0007);
+      let ay = 1.0 + 0.18 * Math.cos(i * 0.0005);
+      let az = 0.55 + 0.18 * Math.sin(i * 0.0009 + 1.2);
+      // Base position
+      let x = radius * Math.sin(phi) * Math.cos(theta) * ax;
+      let y = radius * Math.sin(phi) * Math.sin(theta) * ay;
+      let z = radius * Math.cos(phi) * az;
+      // Large-scale voids/arms
       const clump = 0.7 + 0.5 * perlin3(
         Math.cos(theta) * 80,
         Math.sin(phi) * 80,
         Math.cos(phi) * 80
       );
-      // Large-scale voids/arms
-      const arm = 0.7 + 0.5 * Math.sin(theta * 2 + phi * 1.5 + perlin3(theta * 2, phi * 2, r * 0.0001));
-      radius *= clump * arm;
-      // Base position
-      let x = radius * Math.sin(phi) * Math.cos(theta) * ax;
-      let y = radius * Math.sin(phi) * Math.sin(theta) * ay;
-      let z = radius * Math.cos(phi) * az;
+      const arm = 0.7 + 0.5 * Math.sin(theta * 2 + phi * 1.5 + perlin3(theta * 2, phi * 2, i * 0.0001));
+      x *= clump * arm;
+      y *= clump * arm;
+      z *= clump * arm;
       // Multi-scale noise for organic look
       x += 50 * perlin3(x * 0.03, y * 0.03, z * 0.03);
       y += 50 * perlin3(y * 0.025, z * 0.025, x * 0.025);
@@ -270,9 +269,13 @@ export default function GalaxyCanvas() {
       x += 20 * (Math.random() - 0.5);
       y += 20 * (Math.random() - 0.5);
       z += 20 * (Math.random() - 0.5);
+      // Exclude very center (avoid cubic core)
+      if (Math.sqrt(x * x + y * y + z * z) < nebulaRadius * 0.45) continue;
+      const o = i * 3;
       s[o] = x;
       s[o + 1] = y;
       s[o + 2] = z;
+      i++;
     }
     const t = new Float32Array(Im * 2);
     let n = 0;
