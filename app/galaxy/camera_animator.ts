@@ -149,6 +149,84 @@ export class CameraAnimator {
   }
 
   /**
+   * Loading screen zoom transition - smooth camera pullback for galaxy reveal
+   */
+  animateLoadingZoomTransition(options: AnimationOptions = {}): Promise<void> {
+    const {
+      duration = 3.0,
+      ease = "power2.inOut",
+      onUpdate,
+      onComplete
+    } = options;
+
+    // Kill any existing animation
+    this.stopAnimation();
+
+    // Start position - close to center for loading effect
+    const startPosition = { x: 0, y: 50, z: 150 };
+    const endPosition = { x: 59.3, y: 196, z: 355 }; // Default galaxy view
+    const startTarget = { x: 0, y: 0, z: 0 };
+    const endTarget = { x: 0, y: 0, z: 0 };
+
+    // Set initial position
+    this.camera.position.set(startPosition.x, startPosition.y, startPosition.z);
+    this.controls.target.set(startTarget.x, startTarget.y, startTarget.z);
+    this.controls.update();
+
+    return new Promise((resolve) => {
+      const timeline = gsap.timeline({
+        onComplete: () => {
+          this.currentTween = null;
+          this.controls.update();
+          
+          if (onComplete) {
+            onComplete();
+          }
+          
+          resolve();
+        }
+      });
+
+      // Phase 1: Zoom out while maintaining center focus (0-60% of duration)
+      timeline.to(this.camera.position, {
+        z: 250,
+        duration: duration * 0.6,
+        ease: "power1.out",
+        onUpdate: () => {
+          this.controls.update();
+          if (onUpdate) {
+            onUpdate();
+          }
+        }
+      }, 0);
+
+      // Phase 2: Move to final position with slight overshoot (60-90% of duration)
+      timeline.to(this.camera.position, {
+        x: endPosition.x,
+        y: endPosition.y,
+        z: endPosition.z + 50, // Overshoot
+        duration: duration * 0.3,
+        ease: "power2.out",
+        onUpdate: () => {
+          this.controls.update();
+        }
+      }, duration * 0.6);
+
+      // Phase 3: Settle into final position (90-100% of duration)
+      timeline.to(this.camera.position, {
+        z: endPosition.z,
+        duration: duration * 0.1,
+        ease: "power2.inOut",
+        onUpdate: () => {
+          this.controls.update();
+        }
+      }, duration * 0.9);
+
+      this.currentTween = timeline as any;
+    });
+  }
+
+  /**
    * Animate camera with custom easing curves for different movement types
    */
   animateWithStyle(

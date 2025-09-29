@@ -23,6 +23,12 @@ export const CAMERA_PRESETS: CameraPreset[] = [
     description: "Default elevated overview of the galaxy"
   },
   {
+    name: "Start",
+    position: { x: 318, y: 1050, z: 1900 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Elevated forward start view toward galaxy center"
+  },
+  {
     name: "Top Down",
     position: { x: 407.2, y: 298.2, z: 205 },
     target: { x: 0, y: 0, z: 0 },
@@ -33,6 +39,12 @@ export const CAMERA_PRESETS: CameraPreset[] = [
     position: { x: 400, y: 0, z: 0 },
     target: { x: 0, y: 0, z: 0 },
     description: "Profile view from the side"
+  },
+  {
+    name: "Side View 2",
+    position: { x: -400, y: 0, z: 0 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Profile view from the opposite side"
   },
   {
     name: "Close Up",

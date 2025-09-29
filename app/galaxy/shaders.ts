@@ -213,6 +213,12 @@ const float hoverOpacity = .35;
 uniform vec4 interaction;
 uniform vec3 planets[8];
 uniform float iRadius;
+// Added tuning uniforms
+uniform float orbitSpeed; // Multiplier for angular motion around interaction points
+uniform float interactionRadiusMultiplier; // Scales base iRadius for cursor influence
+uniform float planetRadiusMultiplier; // Scales base iRadius for planet influence
+uniform float influenceStrength; // Scales how strongly particles are pulled toward ring positions
+uniform float ringNoiseAmp; // Scales vertical / secondary noise in ring paths
 
 void main () {
   vec3 p = position;
@@ -306,37 +312,37 @@ void main () {
 
   // Interaction and planets effects
   float iD = distance(worldPosition.xyz, interaction.xyz);
-  float iR = mix(iRadius, iRadius/2.0, fade);
+  float baseIR = mix(iRadius, iRadius/2.0, fade);
+  float iR = baseIR * interactionRadiusMultiplier;
   float sId = 1.0 - smoothstep(iR, iR*2.5, iD);
   vec3 iV = normalize(interaction.xyz-worldPosition.xyz);
-
-  float ringAngle = atan(position.y, position.x) + time;
-  float ringY = 4.0 * snoise(vec3(position.xy, time*.1));
+  float ringAngle = atan(position.y, position.x) + time * orbitSpeed;
+  float ringY = ringNoiseAmp * snoise(vec3(position.xy, time*.1));
   vec3 ringPosition = interaction.xyz  + vec3(iR*sin(ringAngle), ringY, iR*cos(ringAngle));
-  float ringX = 4.0 * snoise(vec3(position.xy, time*.1));
+  float ringX = ringNoiseAmp * snoise(vec3(position.xy, time*.1));
   vec3 ringPosition2 = interaction.xyz  + vec3(iR*sin(ringAngle), iR*cos(ringAngle), ringX);
 
   vec3 trPos = worldPosition.x<interaction.x ? ringPosition2 : ringPosition;
 
-  worldPosition.xyz = mix(worldPosition.xyz, trPos, sId * interaction.w);
+  worldPosition.xyz = mix(worldPosition.xyz, trPos, sId * interaction.w * influenceStrength);
 
   // Planet interactions
   for(int i =0;i<8;++i){
-    float iD = distance(worldPosition.xyz, planets[i].xyz);
-    float iR = mix(iRadius, iRadius/2.0, fade);
-    float sId = 1.0 - smoothstep(iR, iR*2.5, iD);
+  float iD = distance(worldPosition.xyz, planets[i].xyz);
+  float basePR = mix(iRadius, iRadius/2.0, fade);
+  float iR = basePR * planetRadiusMultiplier;
+  float sId = 1.0 - smoothstep(iR, iR*2.5, iD);
     vec3 iV = normalize(planets[i].xyz-worldPosition.xyz);
-
-    float ringAngle = atan(position.y, position.x) + time;
-    float ringY = 4.0 * snoise(vec3(position.xy, time*.1));
-    vec3 ringPosition = planets[i].xyz  + vec3(iR*sin(ringAngle), ringY, iR*cos(ringAngle));
-    float ringX = 4.0 * snoise(vec3(position.xy, time*.1));
-    vec3 ringPosition2 = planets[i].xyz  + vec3(iR*sin(ringAngle), iR*cos(ringAngle), ringX);
+  float ringAngle = atan(position.y, position.x) + time * orbitSpeed;
+  float ringY = ringNoiseAmp * snoise(vec3(position.xy, time*.1));
+  vec3 ringPosition = planets[i].xyz  + vec3(iR*sin(ringAngle), ringY, iR*cos(ringAngle));
+  float ringX = ringNoiseAmp * snoise(vec3(position.xy, time*.1));
+  vec3 ringPosition2 = planets[i].xyz  + vec3(iR*sin(ringAngle), iR*cos(ringAngle), ringX);
 
     vec3 trPos = worldPosition.x<planets[i].x ? ringPosition2 : ringPosition;
 
-    worldPosition.xyz = mix(worldPosition.xyz, trPos, sId);
-    ptScale = mix(ptScale, ptScale*2.0, sId*interaction.w);
+    worldPosition.xyz = mix(worldPosition.xyz, trPos, sId * influenceStrength);
+    ptScale = mix(ptScale, ptScale*2.0, sId*interaction.w * influenceStrength);
   }
 
   vRing = sId * interaction.w;
@@ -351,7 +357,7 @@ void main () {
 
   depth = 1.0 - smoothstep(0.0, ap, CoC);
   ptScale = mix(ptScale, 4.0*ptScale, 1.0 - depth);
-  ptScale = mix(ptScale, ptScale*2.0, sId*interaction.w);
+  ptScale = mix(ptScale, ptScale*2.0, sId*interaction.w * influenceStrength);
 
   if(glow) {
     ptScale = mix(ptScale, ptScale*.5, fdAlpha);
