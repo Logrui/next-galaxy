@@ -187,7 +187,7 @@ export default function GalaxyCanvas() {
       scaleTex: { value: null },
       scale: { value: 1 },
       size: { value: 2.6 },
-      nebula: { value: true },
+      nebula: { value: false },
       focalDistance: { value: 385 },
       aperture: { value: 500 }, // Default aperture value
       maxParticleSize: { value: 8 },
@@ -454,7 +454,7 @@ export default function GalaxyCanvas() {
     };
     window.addEventListener('resize', onResize);
 
-    // Move phase panel setup AFTER onResize definition to avoid forward reference
+    // Move phase panel setup AFTER onResize definition
     // Remove previous phase panel block (left earlier) -- replaced here
     // Phase toggle panel (repositioned)
     const phasePanel = document.createElement('div');
@@ -487,9 +487,9 @@ export default function GalaxyCanvas() {
       <div style="font-weight:bold;">Phase</div>
       <div style="display:flex; gap:6px;">
         <button id="btn-nebula" style="flex:1; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Nebula</button>
-        <button id="btn-galaxy" style="flex:1; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Galaxy</button>
+        <button id="btn-galaxy" style="flex:1; background:rgba(120,160,255,0.35); box-shadow:0 0 0 1px rgba(140,170,255,0.6) inset; border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Galaxy</button>
       </div>
-      <div id="phase-status" style="opacity:.8; font-size:10px; letter-spacing:.5px;">Active: Nebula</div>
+      <div id="phase-status" style="opacity:.8; font-size:10px; letter-spacing:.5px;">Active: Galaxy</div>
     `;
     el.appendChild(phasePanel);
     requestAnimationFrame(positionPhasePanel);
@@ -520,30 +520,26 @@ export default function GalaxyCanvas() {
     }
 
     nebulaBtn?.addEventListener('click', () => {
-      if (!uniforms.nebula.value) {
-        // Transition back: fade up then switch
-        animateFade(uniforms.fade.value, 1, 400);
-        setTimeout(() => {
-          uniforms.nebula.value = true;
-          animateFade(1, 0, 600);
-          setActiveButton('nebula');
-        }, 420);
-      }
+      if (uniforms.nebula.value) return; // already nebula
+      // Switch to nebula phase
+      animateFade(uniforms.fade.value, 1, 300);
+      setTimeout(() => {
+        uniforms.nebula.value = true;
+        animateFade(1, 0, 500);
+        setActiveButton('nebula');
+      }, 320);
     });
-
     galaxyBtn?.addEventListener('click', () => {
-      if (uniforms.nebula.value) {
-        // Transition forward: raise fade to expose late-stage, then drop
-        animateFade(uniforms.fade.value, 1, 400);
-        setTimeout(() => {
-          uniforms.nebula.value = false;
-          animateFade(1, 0, 600);
-          setActiveButton('galaxy');
-        }, 420);
-      }
+      if (!uniforms.nebula.value) return; // already galaxy
+      animateFade(uniforms.fade.value, 1, 300);
+      setTimeout(() => {
+        uniforms.nebula.value = false;
+        animateFade(1, 0, 500);
+        setActiveButton('galaxy');
+      }, 320);
     });
 
-    setActiveButton('nebula');
+    setActiveButton('galaxy');
 
     // Hook into resize AFTER onResize is defined
     const phasePanelResize = () => positionPhasePanel();
