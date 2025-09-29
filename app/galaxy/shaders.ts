@@ -7,7 +7,9 @@ varying float opacity;
 uniform float superOpacity;
 varying vec3 vColor;
 varying float vScale;
-uniform bool nebula;
+// phaseMix: 0.0 = pure nebula, 1.0 = pure galaxy
+uniform float phaseMix;
+uniform bool nebula; // legacy (ignored in new morph logic, retained for compatibility)
 varying float depth;
 varying float fogDepth;
 uniform bool glow;
@@ -218,7 +220,11 @@ void main () {
   vec3 p = position;
   float ptScale = 1.0;
 
-  if(nebula) {
+  // We compute nebula path only if fully nebula or during blend
+  vec3 pNebula = p;
+  float nebulaScale = ptScale;
+  vec3 nebulaColor = vColor;
+  if(phaseMix < 0.999) {
     float pr = smoothstep(0., duration, time);
     float progress = qinticOut(pr);
     float tile = progress*63.0;
@@ -230,15 +236,15 @@ void main () {
     vec3 p1 = getPosition(uv0)*1000.;
     vec3 p2 = getPosition(uv1)*1000.;
     float t = fract(tile);
-    p = interpolate ? mix(p1, p2, t) : p1;
+    pNebula = interpolate ? mix(p1, p2, t) : p1;
 
     vec4 color1 = texture2D(color, uv0);
     vec4 color2 = texture2D(color, uv1);
     vec4 _color = interpolate ? mix(color1, color2, t) : color1;
-    vColor = _color.rgb;
+    nebulaColor = _color.rgb;
     
-    ptScale = texture2D(scaleTex, uv).r;
-    ptScale *= smoothstep(0. , .1, length(p));
+    nebulaScale = texture2D(scaleTex, uv).r;
+    nebulaScale *= smoothstep(0. , .1, length(pNebula));
 
     vec3 pNoise;
     float amp = mix(nebulaAmp, nebulaAmp*.4, fade);
@@ -247,30 +253,41 @@ void main () {
     pNoise.z = amp * snoise(vec3(position.zy*.01, t2 *1.1));
     pNoise.y = pNoise.x;
 
-    p.z = mix(p.z, p.z + 45.0 * snoise(vec3(p.xy * .0075, time *.01)), fdAlpha);
+    pNebula.z = mix(pNebula.z, pNebula.z + 45.0 * snoise(vec3(pNebula.xy * .0075, time *.01)), fdAlpha);
 
     float pt = smoothstep(.5, 1., progress);
-    p = mix(p, p+pNoise, pt);
+    pNebula = mix(pNebula, pNebula+pNoise, pt);
+  }
 
-  } else {
+  // Galaxy path
+  vec3 pGalaxy = p;
+  float galaxyScale = ptScale;
+  vec3 galaxyColor = vColor;
+  if(phaseMix > 0.001) {
     float progress = smoothstep(envStart, duration, time);
     float r = .5 * rand(position.xz * .01);
     progress = smoothstep(r, 1., progress);
 
-    p.x += 100.0 * sin(time*.01 + p.x);
-    p.y += 100.0 * cos(time*.02 + p.y);
-    p.z += 100.0 * sin(time*.026 + p.z);
+    pGalaxy.x += 100.0 * sin(time*.01 + pGalaxy.x);
+    pGalaxy.y += 100.0 * cos(time*.02 + pGalaxy.y);
+    pGalaxy.z += 100.0 * sin(time*.026 + pGalaxy.z);
 
     progress = qinticOut(progress);
-    ptScale *= smoothstep(0.0, 0.2, progress);
+    galaxyScale *= smoothstep(0.0, 0.2, progress);
 
-    p *= progress;
+    pGalaxy *= progress;
 
-    float radius = sqrt(p.x*p.x+p.y*p.y);
+    float radius = sqrt(pGalaxy.x*pGalaxy.x+pGalaxy.y*pGalaxy.y);
 
-    vColor = mix(color1, color2, smoothstep(0., 100.0, radius));
-    vColor = mix(vColor, color3, smoothstep(100., 200.0, radius));
+    galaxyColor = mix(color1, color2, smoothstep(0., 100.0, radius));
+    galaxyColor = mix(galaxyColor, color3, smoothstep(100., 200.0, radius));
   }
+
+  // Blend paths
+  float blend = clamp(phaseMix, 0.0, 1.0);
+  p = mix(pNebula, pGalaxy, blend);
+  ptScale = mix(nebulaScale, galaxyScale, blend);
+  vColor = mix(nebulaColor, galaxyColor, blend);
 
   vLevels = step(10., length(p));
 

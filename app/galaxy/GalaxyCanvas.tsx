@@ -489,7 +489,7 @@ export default function GalaxyCanvas() {
         <button id="btn-nebula" style="flex:1; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Nebula</button>
         <button id="btn-galaxy" style="flex:1; background:rgba(120,160,255,0.35); box-shadow:0 0 0 1px rgba(140,170,255,0.6) inset; border:1px solid rgba(255,255,255,0.35); color:#fff; padding:4px 6px; border-radius:3px; cursor:pointer; font-size:11px;">Galaxy</button>
       </div>
-      <div id="phase-status" style="opacity:.8; font-size:10px; letter-spacing:.5px;">Active: Galaxy</div>
+      <div id="phase-status" style="opacity:.8; font-size:10px; letter-spacing:.5px;">Active: Galaxy (phaseMix=1)</div>
     `;
     el.appendChild(phasePanel);
     requestAnimationFrame(positionPhasePanel);
@@ -507,36 +507,40 @@ export default function GalaxyCanvas() {
       if (statusEl) statusEl.textContent = `Active: ${target==='nebula' ? 'Nebula' : 'Galaxy'}`;
     }
 
-    // Smooth transition helper
+    // Legacy fade (still available for other UI fades)
     function animateFade(from: number, to: number, duration = 800) {
       const start = performance.now();
       function step(now: number) {
         const t = Math.min(1, (now - start) / duration);
-        const eased = t * t * (3 - 2 * t); // smoothstep ease
+        const eased = t * t * (3 - 2 * t);
         uniforms.fade.value = from + (to - from) * eased;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    function animatePhase(target: number, duration = 1400) {
+      const startVal = uniforms.phaseMix?.value ?? 1.0;
+      if (!uniforms.phaseMix) return;
+      if (Math.abs(startVal - target) < 0.0001) return;
+      const startTime = performance.now();
+      function step(now: number) {
+        const t = Math.min(1, (now - startTime) / duration);
+  const eased = t < 0.5 ? 4.0 * t * t * t : 1.0 - Math.pow(-2.0 * t + 2.0, 3.0)/2.0;
+        uniforms.phaseMix.value = startVal + (target - startVal) * eased;
         if (t < 1) requestAnimationFrame(step);
       }
       requestAnimationFrame(step);
     }
 
     nebulaBtn?.addEventListener('click', () => {
-      if (uniforms.nebula.value) return; // already nebula
-      // Switch to nebula phase
-      animateFade(uniforms.fade.value, 1, 300);
-      setTimeout(() => {
-        uniforms.nebula.value = true;
-        animateFade(1, 0, 500);
-        setActiveButton('nebula');
-      }, 320);
+      setActiveButton('nebula');
+      animatePhase(0.0, 1500);
+      if (statusEl) statusEl.textContent = 'Active: Nebula (phaseMix→0)';
     });
     galaxyBtn?.addEventListener('click', () => {
-      if (!uniforms.nebula.value) return; // already galaxy
-      animateFade(uniforms.fade.value, 1, 300);
-      setTimeout(() => {
-        uniforms.nebula.value = false;
-        animateFade(1, 0, 500);
-        setActiveButton('galaxy');
-      }, 320);
+      setActiveButton('galaxy');
+      animatePhase(1.0, 1500);
+      if (statusEl) statusEl.textContent = 'Active: Galaxy (phaseMix→1)';
     });
 
     setActiveButton('galaxy');
