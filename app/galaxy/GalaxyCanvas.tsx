@@ -34,7 +34,8 @@ export default function GalaxyCanvas() {
   const [cameraPosition, setCameraPosition] = useState({ x: 59.3, y: 196, z: 355 });
   const [cameraTarget, setCameraTarget] = useState({ x: 0, y: 0, z: 0 });
   const [phase, setPhase] = useState<'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2'>('nebula');
-  const [phaseMix, setPhaseMix] = useState(1.0);
+  // phaseMix in shader: 0.0 = nebula, 1.0 = galaxy
+  const [phaseMix, setPhaseMix] = useState(0.0);
   const [dyingMix, setDyingMix] = useState(0.0);
 
   // Hydration-safe effect
@@ -99,7 +100,7 @@ export default function GalaxyCanvas() {
       maxParticleSize: { value: 8 },
       tint: { value: new THREE.Color('#fff') },
       glow: { value: false },
-  debugMode: { value: false },
+      debugMode: { value: false },
       superOpacity: { value: 1 },
       superScale: { value: 1 },
       hover: { value: 0 },
@@ -117,7 +118,8 @@ export default function GalaxyCanvas() {
       interaction: { value: new THREE.Vector4(0,0,0,0) },
       iRadius: { value: 11 },
       nebulaAmp: { value: 1.5 },
-      phaseMix: { value: 1.0 },
+  // Start in pure nebula (0.0). Galaxy will animate to 1.0
+  phaseMix: { value: 0.0 },
   dyingMix: { value: 0.0 },
   isNeutronStar2: { value: false },
   stellarMode: { value: false },
@@ -201,6 +203,8 @@ export default function GalaxyCanvas() {
 
     // Helper to regenerate geometry for a new phase
     function regenerateGeometry(phase: 'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2') {
+      // Keep same base geometry for nebula<->galaxy so morph & posTex driven warp stay consistent
+      if(phase === 'nebula' || phase === 'galaxy') return;
       const newS = getGeometryForPhase(phase);
       logGeometryStats(newS, phase);
       geo.dispose();
@@ -430,29 +434,32 @@ export default function GalaxyCanvas() {
 
     // Phase panel handler
     const handlePhaseChange = (target: 'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2') => {
+      // Map phases to phaseMix targets (nebula=0, galaxy=1, others reuse galaxy baseline before special effects)
       if (target === 'nebula') {
         animateDying(0.0, 900);
-        animatePhase(1.0, 1500);
+        animatePhase(0.0, 1500); // nebula
         setPhase('nebula');
         regenerateGeometry('nebula');
       } else if (target === 'galaxy') {
         animateDying(0.0, 900);
-        animatePhase(0.0, 1500);
+        animatePhase(1.0, 1500); // galaxy
         setPhase('galaxy');
         regenerateGeometry('galaxy');
       } else if (target === 'dying') {
-        animatePhase(0.0, 1200);
+        // Move toward galaxy form (1.0) then collapse
+        animatePhase(1.0, 1200);
         animateDying(1.0, 1800);
         setPhase('dying');
         regenerateGeometry('dying');
       } else if (target === 'neutron') {
         animateDying(0.0, 900);
-        animatePhase(2.0, 1500);
+        // Use higher phaseMix values >1 if shader extends phases later; keep at 1.0 for now
+        animatePhase(1.0, 1500);
         setPhase('neutron');
         regenerateGeometry('neutron');
       } else if (target === 'neutronStar2') {
         animateDying(0.0, 900);
-        animatePhase(3.0, 1500);
+        animatePhase(1.0, 1500);
         setPhase('neutronStar2');
         regenerateGeometry('neutronStar2');
       }
