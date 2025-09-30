@@ -203,20 +203,20 @@ export default function GalaxyCanvas() {
 
     // Helper to regenerate geometry for a new phase
     function regenerateGeometry(phase: 'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2') {
-      // Keep same base geometry for nebula<->galaxy so morph & posTex driven warp stay consistent
-      if(phase === 'nebula' || phase === 'galaxy') return;
-      const newS = getGeometryForPhase(phase);
-      logGeometryStats(newS, phase);
+      if(phase === 'nebula' || phase === 'galaxy') return; // keep base
+      if(phase === 'dying') return; // maintain morph continuity into dying collapse
+      const newS = phase === 'neutron' ? generateNeutronStarGeometry(Im, e) : (
+        phase === 'neutronStar2' ? generateNeutronStar2Geometry(Im, e) : generateGalaxyGeometry(Im, e)
+      );
       geo.dispose();
       scene.remove(points);
       geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(newS, 3));
       geo.setAttribute('uv', new THREE.BufferAttribute(t, 2));
-  points = new THREE.Points(geo, (useSimple ? simpleMaterial : material) as THREE.Material);
+      points = new THREE.Points(geo, (useSimple ? simpleMaterial : material) as THREE.Material);
       points.rotation.x = Math.PI / 2;
       scene.add(points);
       if (phase === 'neutronStar2') {
-        // Update magnetic axis from geometry module export
         uniforms.magneticAxis.value.copy(neutronStar2Axis.normalize());
         uniforms.isNeutronStar2.value = true;
         uniforms.stellarMode.value = true;
@@ -266,6 +266,7 @@ export default function GalaxyCanvas() {
       targetZ: 0,
       focalDistance: 385,
       aperture: 500,
+      useLegacyBase: true,
     };
     gui.add(settings, 'progress', 0, 1, 0.01).onChange((value: number) => {
       uniforms.fade.value = value;
@@ -317,6 +318,18 @@ export default function GalaxyCanvas() {
     targetFolder.add(settings, 'targetZ', -1000, 1000, 1).onChange((value: number) => {
       controls.target.z = value;
       controls.update();
+    });
+    gui.add(settings, 'useLegacyBase').onChange((v:boolean)=>{
+      // Recreate base geometry if toggled (only affects nebula/galaxy/dying chain)
+      if(v){
+        const newS = generateLegacyBaseGeometry(Im, e);
+        geo.setAttribute('position', new THREE.BufferAttribute(newS, 3));
+        geo.attributes.position.needsUpdate = true;
+      } else {
+        const newS = generateNebulaGeometry(Im, e); // revert to procedural nebula generator
+        geo.setAttribute('position', new THREE.BufferAttribute(newS, 3));
+        geo.attributes.position.needsUpdate = true;
+      }
     });
 
     // Textures
@@ -522,4 +535,25 @@ export default function GalaxyCanvas() {
       />
     </div>
   );
+}
+
+// Legacy spherical noisy distribution (pre-refactor baseline)
+function generateLegacyBaseGeometry(count: number, extent: number): Float32Array {
+  const s = new Float32Array(count * 3);
+  for (let r = 0; r < count; r++) {
+    const o = r * 3;
+    const theta = Math.acos(1 - 2 * Math.random());
+    const phi = 2 * Math.PI * Math.random();
+    let baseRadius = Math.pow(Math.random(), 0.5) * extent;
+    let noise = 0;
+    noise += 32 * (Math.random() - 0.5);
+    noise += 16 * (Math.random() - 0.5);
+    noise += 8 * (Math.random() - 0.5);
+    noise += 4 * (Math.random() - 0.5);
+    const radius = Math.max(0, baseRadius + noise);
+    s[o] = radius * Math.sin(theta) * Math.cos(phi);
+    s[o + 1] = radius * Math.sin(theta) * Math.sin(phi);
+    s[o + 2] = radius * Math.cos(theta);
+  }
+  return s;
 }
