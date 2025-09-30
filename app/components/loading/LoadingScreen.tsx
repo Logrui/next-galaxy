@@ -7,42 +7,341 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef
+} from 'react';
 import { useAccessibility } from './AccessibilityEnhancer';
-import { LoadingScreenProps, LoadingScreenState, LoadingPhase } from './types';
-import { preloadAssets } from '../../utils/AssetManager';
+import {
+  LoadingScreenProps,
+  LoadingScreenState,
+  LoadingPhase,
+  ParticleSystemState
+} from './types';
+import ShimmerRing from './ShimmerRing';
+import AudioController from './AudioController';
+import ParticleExplosion from './ParticleExplosion';
+import { AudioControllerConfig } from './audio-types';
+import { AnimationSequence } from './AnimationSequence';
+import {
+  getAssetManager,
+  loadEssentialAssets,
+  preloadAssets
+} from '../../utils/AssetManager';
 
-export function LoadingScreen({ onComplete, onError }: LoadingScreenProps) {
-  // Minimal state just to satisfy existing accessibility hook usage
+export function LoadingScreen({
+  onComplete,
+  onError,
+  skipAnimation = false,
+  audioPreference = 'ask'
+}: LoadingScreenProps) {
+  const [audioPreferenceState, setAudioPreferenceState] = useState<
+    'enabled' | 'disabled' | 'ask'
+  >(audioPreference);
+
   const [state, setState] = useState<LoadingScreenState>({
     currentPhase: LoadingPhase.INITIALIZING,
-    assetsLoaded: { textures: false, shaders: false, audio: false, fonts: false, totalProgress: 0 },
+    assetsLoaded: {
+      textures: false,
+      shaders: false,
+      audio: audioPreference === 'disabled',
+      fonts: false,
+      totalProgress: 0
+    },
     animationProgress: 0,
     userInteracted: false,
     webglSupported: true
   });
-  const [awaitingBegin, setAwaitingBegin] = useState(true);
 
-  const accessibility = useAccessibility(state.currentPhase, state.animationProgress);
+  const [awaitingBegin, setAwaitingBegin] = useState(() => !skipAnimation);
+  const [animationsDisabled, setAnimationsDisabled] = useState(() => !!skipAnimation);
 
-  // Basic WebGL support check
+  const accessibility = useAccessibility(
+    state.currentPhase,
+    state.animationProgress
+  );
+
+  const animationSequenceRef = useRef<AnimationSequence | null>(null);
+  const beginTriggeredRef = useRef(false);
+  const completionGuardRef = useRef(false);
+  const assetProgressStopRef = useRef<(() => void) | null>(null);
+  const progressRafRef = useRef<number | null>(null);
+
+  const audioConfig = useMemo<AudioControllerConfig>(
+    () => ({
+      preference: audioPreferenceState,
+      volume: 0.65,
+      fadeInDuration: 1600,
+      fadeOutDuration: 600
+    }),
+    [audioPreferenceState]
+  );
+
+  const buildStubParticleState = useCallback(() => {
+    const count = 32768;
+    return {
+      particleCount: count,
+      positions: new Float32Array(count * 3),
+      colors: new Float32Array(count * 3),
+      velocities: new Float32Array(count * 3),
+      phase: LoadingPhase.COMPLETE
+    };
+  }, []);
+
+  const cleanupAssetProgress = useCallback(() => {
+    assetProgressStopRef.current?.();
+    assetProgressStopRef.current = null;
+  }, []);
+
+  const completeWithParticleState = useCallback(
+    (particleState?: ParticleSystemState) => {
+      if (completionGuardRef.current) return;
+      completionGuardRef.current = true;
+      onComplete(particleState ?? buildStubParticleState());
+    },
+    [onComplete, buildStubParticleState]
+  );
+
+  const startAnimationSequence = useCallback(
+    async () => {
+      animationSequenceRef.current?.dispose();
+      animationSequenceRef.current = new AnimationSequence();
+
+      try {
+        animationSequenceRef.current.initialize({
+          totalDuration: 4200,
+          phases: [
+            { name: LoadingPhase.LOADING_ASSETS, duration: 900 },
+            { name: LoadingPhase.ANIMATING, duration: 2000 },
+            { name: LoadingPhase.TRANSITIONING, duration: 900 }
+          ],
+          onPhaseChange: (phase, progress) => {
+            setState(prev => {
+              if (
+                prev.currentPhase === phase &&
+                Math.abs(prev.animationProgress - progress) < 0.005
+              ) {
+                return prev;
+              }
+              return {
+                ...prev,
+                currentPhase: phase,
+                animationProgress: progress
+              };
+            });
+          },
+          onComplete: () => {
+            setState(prev => ({
+              ...prev,
+              animationProgress: 1,
+              currentPhase: LoadingPhase.TRANSITIONING
+            }));
+          },
+          onError: error =>
+            onError({
+              type: 'animation-error',
+              message: error.message,
+              recoverable: false
+            })
+        });
+        await animationSequenceRef.current.play();
+      } catch (error) {
+        onError({
+          type: 'animation-error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Animation timeline failed',
+          recoverable: false
+        });
+      }
+    },
+    [onError]
+  );
+
+  const initiateLoadingSequence = useCallback(
+    async (options?: { skipTimeline?: boolean; audioPreference?: 'enabled' | 'disabled' }) => {
+      if (beginTriggeredRef.current) {
+        if (options?.skipTimeline) {
+          setAnimationsDisabled(true);
+          setState(prev => ({
+            ...prev,
+            currentPhase: LoadingPhase.COMPLETE,
+            animationProgress: 1
+          }));
+          completeWithParticleState();
+        }
+        return;
+      }
+
+      beginTriggeredRef.current = true;
+      setAwaitingBegin(false);
+      const nextAudioPreference = options?.audioPreference ?? audioPreferenceState;
+      if (options?.audioPreference && options.audioPreference !== audioPreferenceState) {
+        setAudioPreferenceState(options.audioPreference);
+      }
+
+      setState(prev => ({
+        ...prev,
+        userInteracted: true,
+        currentPhase: LoadingPhase.LOADING_ASSETS,
+        assetsLoaded: {
+          ...prev.assetsLoaded,
+          totalProgress: 0,
+          audio: prev.assetsLoaded.audio || nextAudioPreference === 'disabled'
+        }
+      }));
+
+      const assetManager = getAssetManager();
+      cleanupAssetProgress();
+      assetProgressStopRef.current = assetManager.onProgress(progress => {
+        setState(prev => ({
+          ...prev,
+          assetsLoaded: {
+            ...prev.assetsLoaded,
+            totalProgress: Math.min(1, progress.percentage / 100)
+          }
+        }));
+      });
+
+      try {
+        await loadEssentialAssets();
+        setState(prev => ({
+          ...prev,
+          assetsLoaded: {
+            ...prev.assetsLoaded,
+            textures: true,
+            shaders: true,
+            totalProgress: 1
+          }
+        }));
+      } catch (error) {
+        beginTriggeredRef.current = false;
+        setAwaitingBegin(true);
+        cleanupAssetProgress();
+        onError({
+          type: 'asset-load-failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Asset loading failed',
+          recoverable: true
+        });
+        return;
+      }
+
+      cleanupAssetProgress();
+
+      preloadAssets()
+        .then(() => {
+          setState(prev => ({
+            ...prev,
+            assetsLoaded: {
+              ...prev.assetsLoaded,
+              audio: true,
+              fonts: true
+            }
+          }));
+        })
+        .catch(err => {
+          console.warn('Optional asset preload issue:', err);
+        });
+
+      if (options?.skipTimeline || animationsDisabled) {
+        setAnimationsDisabled(true);
+        setState(prev => ({
+          ...prev,
+          currentPhase: LoadingPhase.COMPLETE,
+          animationProgress: 1
+        }));
+        completeWithParticleState();
+        return;
+      }
+
+      startAnimationSequence();
+    },
+    [
+      animationsDisabled,
+      audioPreferenceState,
+      cleanupAssetProgress,
+      completeWithParticleState,
+      onError,
+      startAnimationSequence
+    ]
+  );
+
+  const handleParticleComplete = useCallback(
+    (particleState: ParticleSystemState) => {
+      setState(prev => ({
+        ...prev,
+        currentPhase: LoadingPhase.COMPLETE,
+        animationProgress: 1
+      }));
+      completeWithParticleState(particleState);
+    },
+    [completeWithParticleState]
+  );
+
+  const handleParticleError = useCallback(
+    (message: string) => {
+      onError({
+        type: 'animation-error',
+        message,
+        recoverable: true
+      });
+      completeWithParticleState();
+    },
+    [completeWithParticleState, onError]
+  );
+
+  const handleSkip = useCallback(() => {
+    setAnimationsDisabled(true);
+    animationSequenceRef.current?.skipToEnd();
+    animationSequenceRef.current?.dispose();
+    setState(prev => ({
+      ...prev,
+      currentPhase: LoadingPhase.COMPLETE,
+      animationProgress: 1
+    }));
+    completeWithParticleState();
+  }, [completeWithParticleState]);
+
+  const handleBegin = useCallback(() => {
+    initiateLoadingSequence();
+  }, [initiateLoadingSequence]);
+
+  // WebGL capability check
   useEffect(() => {
     try {
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
       if (!gl) {
         setState(prev => ({ ...prev, webglSupported: false }));
-        onError({ type: 'webgl-failure', message: 'WebGL not supported', recoverable: false });
+        onError({
+          type: 'webgl-failure',
+          message: 'WebGL not supported',
+          recoverable: false
+        });
       }
-    } catch {
+    } catch (error) {
       setState(prev => ({ ...prev, webglSupported: false }));
-      onError({ type: 'webgl-failure', message: 'WebGL initialization error', recoverable: false });
+      onError({
+        type: 'webgl-failure',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'WebGL initialization error',
+        recoverable: false
+      });
     }
   }, [onError]);
 
-  // First interaction marker
+  // mark first interaction for accessibility tracking
   useEffect(() => {
-    const mark = () => setState(p => ({ ...p, userInteracted: true }));
+    const mark = () => setState(prev => ({ ...prev, userInteracted: true }));
     window.addEventListener('click', mark, { once: true });
     window.addEventListener('keydown', mark, { once: true });
     window.addEventListener('touchstart', mark, { once: true });
@@ -53,28 +352,72 @@ export function LoadingScreen({ onComplete, onError }: LoadingScreenProps) {
     };
   }, []);
 
-  const buildStubParticleState = () => {
-    // Provide a correctly sized particle state so galaxy handoff logic finds expected counts
-    const count = 32768; // must align with ParticleSystem expectation
-    return {
-      particleCount: count,
-      positions: new Float32Array(count * 3),
-      colors: new Float32Array(count * 3),
-      velocities: new Float32Array(count * 3),
-      phase: LoadingPhase.COMPLETE
-    };
-  };
+  // respond to external audio preference changes
+  useEffect(() => {
+    setAudioPreferenceState(audioPreference);
+    setState(prev => ({
+      ...prev,
+      assetsLoaded: {
+        ...prev.assetsLoaded,
+        audio: prev.assetsLoaded.audio || audioPreference === 'disabled'
+      }
+    }));
+  }, [audioPreference]);
 
-  const handleBegin = useCallback(async () => {
-    setAwaitingBegin(false);
-    // Preload essential assets before transitioning so GalaxyCanvas finds textures immediately
-    try {
-      await preloadAssets();
-    } catch (e) {
-      console.warn('Asset preloading encountered an issue (continuing anyway):', e);
+  // Auto-start when skipAnimation prop provided
+  useEffect(() => {
+    if (skipAnimation) {
+      initiateLoadingSequence({ skipTimeline: true });
     }
-    onComplete(buildStubParticleState());
-  }, [onComplete]);
+  }, [skipAnimation, initiateLoadingSequence]);
+
+  // Animation progress polling for accessibility feedback
+  useEffect(() => {
+    if (animationsDisabled || awaitingBegin) {
+      if (progressRafRef.current) {
+        cancelAnimationFrame(progressRafRef.current);
+        progressRafRef.current = null;
+      }
+      return;
+    }
+
+    const update = () => {
+      if (animationSequenceRef.current) {
+        const progress = animationSequenceRef.current.getProgress();
+        setState(prev => {
+          if (Math.abs(prev.animationProgress - progress) < 0.005) {
+            return prev;
+          }
+          return {
+            ...prev,
+            animationProgress: progress
+          };
+        });
+      }
+      progressRafRef.current = requestAnimationFrame(update);
+    };
+
+    progressRafRef.current = requestAnimationFrame(update);
+
+    return () => {
+      if (progressRafRef.current) {
+        cancelAnimationFrame(progressRafRef.current);
+        progressRafRef.current = null;
+      }
+    };
+  }, [animationsDisabled, awaitingBegin]);
+
+  useEffect(() => () => cleanupAssetProgress(), [cleanupAssetProgress]);
+
+  useEffect(
+    () => () => {
+      animationSequenceRef.current?.dispose();
+      if (progressRafRef.current) {
+        cancelAnimationFrame(progressRafRef.current);
+      }
+    },
+    []
+  );
 
   if (!state.webglSupported) {
     return (
@@ -82,7 +425,7 @@ export function LoadingScreen({ onComplete, onError }: LoadingScreenProps) {
         <div>
           <h2 className="text-xl font-semibold mb-4">WebGL Not Supported</h2>
           <button
-            onClick={() => onComplete(buildStubParticleState())}
+            onClick={() => completeWithParticleState()}
             className="px-6 py-2 border border-white/30 hover:border-white/60 transition-colors text-xs tracking-[0.3em]"
           >
             CONTINUE ANYWAY
@@ -92,89 +435,123 @@ export function LoadingScreen({ onComplete, onError }: LoadingScreenProps) {
     );
   }
 
+  const ringProgress =
+    state.currentPhase === LoadingPhase.LOADING_ASSETS
+      ? state.assetsLoaded.totalProgress
+      : state.animationProgress;
+
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black"
+      className="fixed inset-0 flex items-center justify-center bg-[#020617] text-white overflow-hidden"
       data-testid="loading-screen"
       aria-label="Loading application"
       role="progressbar"
-      aria-valuenow={0}
+      aria-valuenow={Math.round(ringProgress * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-live="polite"
-      aria-busy={false}
+      aria-busy={state.currentPhase !== LoadingPhase.COMPLETE}
       style={{ ...accessibility.getAccessibilityStyles() }}
       tabIndex={accessibility.config.focusManagement ? 0 : undefined}
     >
       <accessibility.AnnouncementRegion />
 
-      <div className="relative z-10 flex flex-col items-center w-full h-full justify-center">
-        <div className="absolute top-36 left-1/2 -translate-x-1/2 text-[36px] tracking-[0.35em] text-white/90 select-none" style={{ letterSpacing: '0.35em' }} aria-hidden>
+      {!animationsDisabled && !awaitingBegin && (
+        <ParticleExplosion
+          phase={state.currentPhase}
+          progress={state.animationProgress}
+          onComplete={handleParticleComplete}
+          onError={handleParticleError}
+        />
+      )}
+
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.25),transparent_60%)]" />
+
+      <div className="relative z-10 flex flex-col items-center justify-center w-full h-full px-6">
+        <div
+          className="absolute top-24 left-1/2 -translate-x-1/2 text-xs tracking-[0.6em] uppercase text-white/70 select-none"
+          aria-hidden
+        >
           SYHC
         </div>
-        {awaitingBegin && (
-          <div className="relative flex items-center justify-center group" style={{ width: 340, height: 340 }}>
-            <style jsx>{`
-              @keyframes ringBreath { 
-                0% { transform: scale(1) translateZ(0); }
-                35% { transform: scale(1.10) translateZ(0); }
-                70% { transform: scale(1.03) translateZ(0); }
-                100% { transform: scale(1) translateZ(0); }
-              }
-              @keyframes ringContract { 
-                0% { transform: scale(var(--base-scale)); }
-                55% { transform: scale(calc(var(--base-scale) * 0.55)); }
-                100% { transform: scale(calc(var(--base-scale) * 0.62)); }
-              }
-              .begin-ring { 
-                animation: ringBreath 5.5s ease-in-out infinite;
-                transition: border-color .9s ease, opacity 1.2s ease; 
-                will-change: transform, border-color, opacity; 
-              }
-              .group:hover .begin-ring { 
-                animation: ringContract 3.2s cubic-bezier(.7,.05,.25,1) forwards; 
-                border-color: var(--accent-blue) !important; 
-              }
-            `}</style>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {([72, 96] as number[]).map((inset, i) => {
-                const opacitySequence = [0.8, 0.9];
-                const opacity = opacitySequence[i] ?? 0.8;
-                return (
-                  <div
-                    key={i}
-                    className="begin-ring absolute rounded-full border"
-                    style={{
-                      inset,
-                      '--base-scale': 1 + i * 0.04,
-                      opacity,
-                      borderColor: 'rgba(255,255,255,0.30)',
-                      animationDelay: `${i * 300}ms`,
-                      transform: `scale(${1 + i * 0.04})`,
-                      transformOrigin: '50% 50%'
-                    } as React.CSSProperties}
-                  />
-                );
-              })}
+
+        {awaitingBegin ? (
+          <div className="flex flex-col items-center gap-6">
+            <div className="relative flex items-center justify-center" style={{ width: 360, height: 360 }}>
+              <style jsx>{`
+                @keyframes pulseRing {
+                  0% { transform: scale(1); opacity: 0.6; }
+                  50% { transform: scale(1.08); opacity: 0.85; }
+                  100% { transform: scale(1); opacity: 0.6; }
+                }
+                .begin-ring {
+                  animation: pulseRing 6s ease-in-out infinite;
+                  will-change: transform, opacity;
+                }
+              `}</style>
+              {[70, 105, 150].map((radius, idx) => (
+                <div
+                  key={radius}
+                  className="begin-ring absolute rounded-full border border-white/20"
+                  style={{
+                    inset: radius,
+                    animationDelay: `${idx * 500}ms`
+                  }}
+                />
+              ))}
+              <button
+                onClick={handleBegin}
+                data-testid="begin-button"
+                className="relative z-10 w-56 h-56 rounded-full border border-white/30 text-[18px] tracking-[0.45em] text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#020617] transition-all duration-700 hover:scale-95 hover:border-blue-400/70 hover:text-blue-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ letterSpacing: '0.45em', backdropFilter: 'blur(6px)' }}
+                disabled={!state.webglSupported}
+              >
+                BEGIN
+              </button>
             </div>
             <button
-              onClick={handleBegin}
-              data-testid="begin-button"
-              className="relative z-10 w-56 h-56 rounded-full border border-white/25 text-[20px] tracking-[0.4em] text-white/80 focus:outline-none transition-all duration-700 group-hover:border-[color:var(--accent-blue)] group-hover:text-[color:var(--accent-blue)] group-hover:shadow-[0_0_30px_rgba(59,130,246,0.55)] group-hover:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ letterSpacing: '0.4em', backdropFilter: 'blur(4px)' }}
-              disabled={!state.webglSupported}
+              onClick={() => initiateLoadingSequence({ audioPreference: 'disabled' })}
+              className="text-[10px] tracking-[0.35em] text-white/55 hover:text-white/80 transition-colors"
             >
-              BEGIN
+              CONTINUE WITHOUT AUDIO
             </button>
           </div>
+        ) : (
+          <div className="flex flex-col items-center gap-8">
+            <ShimmerRing
+              size={260}
+              strokeWidth={4}
+              phase={state.currentPhase}
+              progress={ringProgress}
+            />
+
+            <div className="flex flex-col items-center gap-3">
+              <span className="text-xs uppercase tracking-[0.5em] text-white/45">Phase</span>
+              <span
+                data-testid="loading-phase"
+                className="text-sm tracking-[0.3em] text-white/80"
+              >
+                {state.currentPhase.replace(/_/g, ' ')}
+              </span>
+              <span className="text-[10px] tracking-[0.4em] text-white/55">
+                {Math.round(ringProgress * 100)}% READY
+              </span>
+              <accessibility.AccessibleSkipButton
+                onSkip={handleSkip}
+                visible={
+                  !animationsDisabled &&
+                  state.currentPhase !== LoadingPhase.LOADING_ASSETS &&
+                  state.currentPhase !== LoadingPhase.COMPLETE
+                }
+              />
+            </div>
+          </div>
         )}
-        {awaitingBegin && (
-          <button
-            onClick={handleBegin}
-            className="absolute bottom-12 left-1/2 -translate-x-1/2 text-[10px] tracking-[0.35em] text-white/55 hover:text-white/80 transition-colors"
-          >
-            CONTINUE WITHOUT AUDIO
-          </button>
+
+        {!animationsDisabled && !awaitingBegin && (
+          <div className="absolute top-8 right-8">
+            <AudioController config={audioConfig} phase={state.currentPhase} />
+          </div>
         )}
       </div>
     </div>

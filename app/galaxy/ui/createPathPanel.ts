@@ -1,4 +1,4 @@
-export type PathMode = 0 | 1 | 2 | 3; // 0=Base,1=Spiral,2=Ring,3=Jets
+export type PathMode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; // 0=Base,1=Spiral,2=Ring,3=Jets,4=Vortex,5=Shells,6=Neutron,7=Helix
 
 interface CreatePathPanelOptions {
   container: HTMLElement;
@@ -22,6 +22,10 @@ export function createPathPanel(opts: CreatePathPanelOptions){
       <button data-mode="1" style="flex:1 1 45%; padding:4px 6px; background:rgba(40,140,255,0.25); border:1px solid rgba(120,180,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Spiral</button>
       <button data-mode="2" style="flex:1 1 45%; padding:4px 6px; background:rgba(200,140,255,0.25); border:1px solid rgba(230,200,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Ring</button>
       <button data-mode="3" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,120,70,0.35), rgba(255,225,120,0.3)); border:1px solid rgba(255,170,110,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Jets</button>
+      <button data-mode="4" style="flex:1 1 45%; padding:4px 6px; background:rgba(120,255,255,0.18); border:1px solid rgba(140,255,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Vortex</button>
+      <button data-mode="5" style="flex:1 1 45%; padding:4px 6px; background:rgba(255,255,200,0.18); border:1px solid rgba(255,255,160,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Shells</button>
+      <button data-mode="6" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,255,255,0.5), rgba(120,180,255,0.4)); border:1px solid rgba(200,220,255,0.6); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Neutron</button>
+      <button data-mode="7" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(180,120,255,0.35), rgba(120,255,255,0.3)); border:1px solid rgba(170,140,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Helix</button>
     </div>
     <div data-status style="font-size:10px; opacity:.8;">Mode: Base</div>
   `;
@@ -39,7 +43,7 @@ export function createPathPanel(opts: CreatePathPanelOptions){
       }
     });
     if(status){
-      const names: Record<PathMode,string> = {0:'Base',1:'Spiral',2:'Ring',3:'Jets'};
+  const names: Record<PathMode,string> = {0:'Base',1:'Spiral',2:'Ring',3:'Jets',4:'Vortex',5:'Shells',6:'Neutron',7:'Helix'};
       status.textContent = `Mode: ${names[mode]}`;
     }
   }
@@ -60,5 +64,5 @@ export function createPathPanel(opts: CreatePathPanelOptions){
     if(el.parentElement === container) container.removeChild(el);
   }
 
-  return { element: el, destroy };
+  return { element: el, destroy, setMode: (m:PathMode)=>{ setMode(m); refresh(); } };
 }

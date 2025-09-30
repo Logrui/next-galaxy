@@ -7,8 +7,11 @@ varying float opacity;
 uniform float superOpacity;
 varying vec3 vColor;
 varying float vScale;
-// phaseMix: 0.0 = pure nebula, 1.0 = pure galaxy
-uniform float phaseMix; // 0=nebula 1=galaxy
+// phaseMix semantic (CONSISTENCY NOTE):
+// Vertex blending later treats phaseMix as mix(pNebula -> pGalaxy) with blend = clamp(phaseMix,0,1)
+// That means: phaseMix=0 => Nebula, phaseMix=1 => Galaxy.
+// (Previous inline comments were contradictory; this block is authoritative.)
+uniform float phaseMix; // 0 = Nebula, 1 = Galaxy
 uniform float dyingMix; // 0=normal, 1=dying star condensed
 uniform bool nebula; // legacy (ignored in new morph logic, retained for compatibility)
 // (Removed duplicate dyingMix uniform declaration)
@@ -92,7 +95,10 @@ uniform float phaseMix;
 // Add missing dyingMix uniform for Dying Star phase
 uniform float dyingMix;
 // Extra path variants (0=Base,1=Spiral,2=Ring,3=Jets)
-uniform int extraPathMode;
+uniform int extraPathMode; // retained for backward compatibility (panel highlight etc.)
+uniform int fromPathMode;
+uniform int toPathMode;
+uniform float pathMix; // 0 -> fromPathMode, 1 -> toPathMode
 
 varying float opacity;
 varying vec3 vColor;

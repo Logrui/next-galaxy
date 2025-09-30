@@ -1,37 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  /* Background Colors */
-  --bg-primary: #000000;           /* Pure black background */
-  --bg-secondary: #1f2937;         /* Dark gray-800 */
-  --bg-tertiary: #111827;          /* Gray-900 */
-
-  /* Accent Colors */
-  --accent-blue: #3b82f6;          /* Blue-500 */
-  --accent-purple: #7c3aed;        /* Purple-600 */
-  --accent-green: #059669;         /* Emerald-600 */
-  --accent-pink: #ec4899;          /* Pink-500 */
-  --accent-cyan: #0891b2;          /* Cyan-600 */
-
-  /* Glassmorphism Surfaces */
-  --glass-primary: rgba(0, 0, 0, 0.4);
-  --glass-secondary: rgba(16, 16, 24, 0.6);
-  --glass-tertiary: rgba(0, 0, 0, 0.8);
-
-  /* Text Colors */
-  --text-primary: #ffffff;
-  --text-secondary: #e5e7eb;
-  --text-muted: #9ca3af;
-  --text-accent: #60a5fa;
-
-  /* Border Colors */
-  --border-glass: rgba(255, 255, 255, 0.1);
-  --border-accent: rgba(59, 130, 246, 0.3);
-  --border-focus: rgba(59, 130, 246, 0.5);
-}
-
 * {
   box-sizing: border-box;
   padding: 0;
@@ -44,51 +10,9 @@ body {
   overflow-x: hidden;
   margin: 0;
   padding: 0;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  background: #000;
+  color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
-}
-
-/* Accessibility Utilities */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* Focus indicators for keyboard navigation */
-*:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
-}
-
-/* Reduced motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  :root {
-    --text-primary: #ffffff;
-    --text-secondary: #ffffff;
-    --text-muted: #cccccc;
-    --border-glass: rgba(255, 255, 255, 0.8);
-    --border-accent: rgba(255, 255, 255, 1);
-  }
 }

@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { random } from 'canvas-sketch-util';
 import { LoadingPhase, ParticleSystemState } from '../components/loading/types';
-import { ParticleSystemConfig, ParticleColors, PerformanceMetrics, WebGLResources, ParticleSystemState as GalaxyParticleSystemState } from './types';
+import { ParticleSystemConfig, ParticleColors } from './types';
 
 export class ParticleSystem {
   private geometry: THREE.BufferGeometry;
@@ -30,75 +30,6 @@ export class ParticleSystem {
     
     this.points = new THREE.Points(this.geometry, this.material);
     this.points.rotation.x = Math.PI / 2;
-  }
-
-  // --- Contract Interface (tests expect these methods) ---
-  /** Initialize particle system resources */
-  public async initialize(config: ParticleSystemConfig): Promise<void> {
-    // For now we only validate particle count; geometry already created in constructor.
-    if (config.particleCount !== this.particleCount) {
-      console.warn(`Config particleCount ${config.particleCount} does not match internal ${this.particleCount}`);
-    }
-    // Set current phase to loading assets -> animating -> complete quickly (stub)
-    this.currentPhase = LoadingPhase.LOADING_ASSETS;
-    await new Promise(r => setTimeout(r, 10));
-    this.currentPhase = LoadingPhase.ANIMATING;
-  }
-
-  /** Begin explosion animation (stubbed quick resolve) */
-  public async startExplosion(center: THREE.Vector3): Promise<void> {
-    // Simple time based fake animation for contract
-    const start = Date.now();
-    while (Date.now() - start < 50) {
-      // spin a few frames
-    }
-  }
-
-  /** Form galaxy over provided duration (stub with timeout) */
-  public async formGalaxy(duration: number): Promise<void> {
-    await new Promise(r => setTimeout(r, Math.min(duration, 50)));
-  }
-
-  /** Transition to default COMPLETE state and return state snapshot */
-  public async transitionToDefault(): Promise<ParticleSystemState> {
-    this.currentPhase = LoadingPhase.COMPLETE;
-    return this.exportParticleState();
-  }
-
-  /** Return current state snapshot */
-  public getCurrentState(): ParticleSystemState {
-    return this.exportParticleState();
-  }
-
-  /** Performance metrics placeholder */
-  public getPerformanceMetrics(): PerformanceMetrics {
-    return {
-      averageFPS: 60,
-      targetFPS: 60,
-      adaptiveQuality: true,
-      qualityReduction: 0,
-      memoryUsage: (this.particleCount * 3 * 4) * 2, // positions+colors approx
-      renderTime: 16,
-    };
-  }
-
-  /** Return WebGL resources summary */
-  public getWebGLResources(): WebGLResources {
-    return {
-      bufferGeometry: this.geometry,
-      material: this.material,
-      renderingMethod: 'instanced',
-      memoryUsage: (this.particleCount * 3 * 4) * 2,
-    };
-  }
-
-  /** Transfer state for galaxy integration */
-  public transferToGalaxy(): { particleState: ParticleSystemState; webglResources: WebGLResources; cameraState: any } {
-    return {
-      particleState: this.exportParticleState(),
-      webglResources: this.getWebGLResources(),
-      cameraState: this.getCameraState?.() || { position: { x:0,y:0,z:0 }, target: { x:0,y:0,z:0 }, fov: 70, zoom: 1 },
-    };
   }
 
   private createGeometry(): THREE.BufferGeometry {

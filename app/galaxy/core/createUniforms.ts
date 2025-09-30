@@ -41,7 +41,10 @@ export function createUniforms() {
     nebulaAmp: { value: 1.5 },
     phaseMix: { value: 1.0 },
     dyingMix: { value: 0.0 },
-    extraPathMode: { value: 0 }, // 0=Base (current blend),1=Spiral,2=Ring,3=Jets
+    extraPathMode: { value: 0 }, // current active (legacy immediate mode reference)
+    fromPathMode: { value: 0 },  // start mode for blend
+    toPathMode: { value: 0 },    // target mode for blend
+    pathMix: { value: 1.0 },     // 0 => fromPath, 1 => toPath
   };
   return uniforms;
 }

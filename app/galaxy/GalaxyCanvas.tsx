@@ -15,6 +15,7 @@ import { createCameraInfoOverlay } from './ui/createCameraInfoOverlay';
 import { createPresetButtons } from './ui/createPresetButtons';
 import { createPhasePanel } from './ui/createPhasePanel';
 import { createPathPanel } from './ui/createPathPanel';
+import { createStatusPanel } from './ui/createStatusPanel';
 import { getGeometryForPhase } from './presets';
 import { createUniforms } from './core/createUniforms';
 import { createMaterial } from './core/createMaterial';
@@ -22,8 +23,13 @@ import { createPointCloud } from './core/createPointCloud';
 import { createDebugGUI } from './core/createDebugGUI';
 import { createInteraction } from './core/createInteraction';
 import { createAnimationLoop } from './core/createAnimationLoop';
+import { ParticleSystemState } from './types';
 
-export default function GalaxyCanvas() {
+interface GalaxyCanvasProps {
+  loadingParticleState?: ParticleSystemState;
+}
+
+export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const debugSphereRef = useRef<THREE.Mesh | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
@@ -32,14 +38,29 @@ export default function GalaxyCanvas() {
   const cameraInfoRef = useRef<HTMLDivElement | null>(null);
   const presetButtonsRef = useRef<HTMLDivElement | null>(null);
   const cameraAnimatorRef = useRef<CameraAnimator | null>(null);
+  const statusPanelRef = useRef<{ element: HTMLDivElement; update: ()=>void; destroy: ()=>void } | null>(null);
+  const loadingParticleStateRef = useRef<ParticleSystemState | null>(null);
+  // Guard to avoid double init in React 18 StrictMode dev (mount -> unmount -> remount)
+  const didInitRef = useRef(false);
 
   // Hydration-safe effect
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  // Store particle handoff for forthcoming transitions without triggering unnecessary re-renders
+  useEffect(() => {
+    if (loadingParticleState) {
+      loadingParticleStateRef.current = loadingParticleState;
+    }
+  }, [loadingParticleState]);
+
   useEffect(() => {
     if (!isClient) return;
+    if(didInitRef.current){
+      return; // Prevent re-initialization (avoids camera reset after intro)
+    }
+    didInitRef.current = true;
     
     const el = containerRef.current;
     if (!el) return;
@@ -89,13 +110,24 @@ export default function GalaxyCanvas() {
       controls.update();
     }
 
-    // Schedule transition to Overview after small delay (animate over 3s)
+    // Custom intro sequence replaces previous single auto camera move.
     const overviewPreset = CAMERA_PRESETS.find(p => p.name === 'Overview');
-    if (startPreset && overviewPreset) {
-      setTimeout(() => {
-        cameraAnimator.animateToPreset(overviewPreset, { duration: 3, ease: 'power2.inOut' });
-      }, 300); // allow initial frame to render at Start position
-    }
+    const closeUpPreset = CAMERA_PRESETS.find(p => /close( |-)up/i.test(p.name) || p.name === 'Close Up' || p.name === 'CloseUp');
+
+    const lockCameraToPreset = (preset = overviewPreset) => {
+      if (!preset) {
+        return;
+      }
+      if (cameraAnimator.isAnimating()) {
+        cameraAnimator.stopAnimation();
+      }
+      camera.position.set(preset.position.x, preset.position.y, preset.position.z);
+      controls.target.set(preset.target.x, preset.target.y, preset.target.z);
+      controls.update();
+      if (typeof (controls as any).saveState === 'function') {
+        (controls as any).saveState();
+      }
+    };
 
     // Uniforms & material
     const uniforms = createUniforms();
@@ -162,6 +194,12 @@ export default function GalaxyCanvas() {
         controls,
         cameraInfoAPI: cameraInfoOverlay // pass full API so loop can call update()
       });
+      if(ENABLE_INTRO_SEQUENCE){
+        console.log('[Intro] Starting intro sequence. Initial camera position:', camera.position.toArray());
+        startIntro();
+      }
+      const statusTick = () => { if(statusPanelRef.current) statusPanelRef.current.update(); requestAnimationFrame(statusTick); };
+      requestAnimationFrame(statusTick);
     });
 
     // Interaction
@@ -228,11 +266,170 @@ export default function GalaxyCanvas() {
     requestAnimationFrame(()=>positionPhase(phasePanelAPI.element));
 
     // Path variants panel (simple immediate uniform update; easing can be added later if desired)
+    // Path transition animation helper
+    function animatePathTransition(target:number, duration=1400){
+      const startMode = uniforms.toPathMode.value;
+      if(startMode === target){ return; }
+      uniforms.fromPathMode.value = startMode;
+      uniforms.toPathMode.value = target;
+      const startTime = performance.now();
+      function step(now:number){
+        const t = Math.min(1, (now-startTime)/duration);
+        // smoothstep easing
+        const eased = t*t*(3-2*t);
+        uniforms.pathMix.value = eased;
+        if(t<1) requestAnimationFrame(step); else {
+          // finalize legacy reference for consistency
+          uniforms.extraPathMode.value = target;
+          uniforms.fromPathMode.value = target;
+          uniforms.toPathMode.value = target;
+          uniforms.pathMix.value = 1.0;
+        }
+      }
+      uniforms.pathMix.value = 0.0;
+      requestAnimationFrame(step);
+    }
+
     const pathPanelAPI = createPathPanel({
       container: el,
-      getMode: () => uniforms.extraPathMode.value as 0|1|2|3,
-      setMode: (m) => { uniforms.extraPathMode.value = m; }
+      getMode: () => uniforms.toPathMode.value as any,
+      setMode: (m) => { animatePathTransition(m, 1600); }
     });
+    const statusPanelAPI = createStatusPanel({
+      container: el,
+      getPhaseMix: () => uniforms.phaseMix.value,
+      getDyingMix: () => uniforms.dyingMix.value,
+      getFromPath: () => uniforms.fromPathMode.value as any,
+      getToPath: () => uniforms.toPathMode.value as any,
+      getPathMix: () => uniforms.pathMix.value,
+    });
+    statusPanelRef.current = statusPanelAPI;
+
+  // Intro cinematic sequence:
+  // 0s   : Dying Star phase (dyingMix=1), Vortex path (mode 4), camera Close Up preset
+  // 3s   : Begin transition to Galaxy (phaseMix->0) & path Vortex -> Spiral
+  // 6s   : Final to Galaxy base (mode 0), remain at Overview
+    function seqAnimateNumber(ref:{ value:number }, target:number, duration:number, ease:(t:number)=>number){
+      const startVal = ref.value; if(Math.abs(startVal-target)<0.0001) return;
+      const t0 = performance.now();
+      function step(now:number){
+        const t = Math.min(1,(now-t0)/duration); ref.value = startVal + (target-startVal)*ease(t);
+        if(t<1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    const easeInOutCubic = (t:number)=> t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+    const easeSmooth = (t:number)=> t*t*(3-2*t);
+
+    const ENABLE_INTRO_SEQUENCE = true; // cinematic intro enabled
+
+    if(ENABLE_INTRO_SEQUENCE){
+      // Set initial dramatic state (Dying Star + Vortex) BEFORE first frame renders
+      uniforms.phaseMix.value = 1.0; // Nebula side
+      uniforms.dyingMix.value = 1.0; // Fully collapsed / dying effect
+      uniforms.extraPathMode.value = 4; // Vortex
+      uniforms.fromPathMode.value = 4;
+      uniforms.toPathMode.value = 4;
+      uniforms.pathMix.value = 1.0;
+      // Start camera at Close Up position immediately (no initial Overview flash)
+      if(closeUpPreset){
+        camera.position.set(closeUpPreset.position.x, closeUpPreset.position.y, closeUpPreset.position.z);
+        controls.target.set(closeUpPreset.target.x, closeUpPreset.target.y, closeUpPreset.target.z);
+        controls.update();
+      }
+    } else {
+      // Baseline final/default state (when intro disabled): Galaxy + Base Path + Overview.
+      uniforms.phaseMix.value = 0.0; // Galaxy
+      uniforms.dyingMix.value = 0.0; // Not dying
+      uniforms.extraPathMode.value = 0; // Base path
+      uniforms.fromPathMode.value = 0;
+      uniforms.toPathMode.value = 0;
+      uniforms.pathMix.value = 1.0;
+      if(overviewPreset){
+        camera.position.set(overviewPreset.position.x, overviewPreset.position.y, overviewPreset.position.z);
+        controls.target.set(overviewPreset.target.x, overviewPreset.target.y, overviewPreset.target.z);
+        controls.update();
+      }
+    }
+
+    // Minimal black overlay that fades out automatically (no text)
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `position:absolute; inset:0; background:#000; z-index:1500; opacity:1; transition:opacity 1.5s ease;`;
+    el.appendChild(overlay);
+    function fadeOutOverlayImmediate(){
+      overlay.style.opacity = '0';
+      setTimeout(()=>{ if(el && overlay.parentElement===el) el.removeChild(overlay); }, 1600);
+    }
+
+    function startIntro(){
+      // Camera refine (animate into exact Close Up framing if preset defined)
+      if(closeUpPreset){ cameraAnimator.animateToPreset(closeUpPreset, { duration: 0.8, ease:'power2.inOut' }).catch(()=>{}); }
+      // Hold initial dramatic state fully for 6s, then transition to Spiral/Galaxy
+      setTimeout(()=>{
+        // Boundary 1 (t=6s): start transitions to middle state
+        seqAnimateNumber(uniforms.dyingMix, 0.0, 600, easeSmooth); // collapse release
+        seqAnimateNumber(uniforms.phaseMix, 0.0, 600, easeInOutCubic); // nebula->galaxy morph quickly
+        animatePathTransition(1, 800); // Vortex -> Spiral
+        // Camera begins long 6s pull-out toward Overview (finishes at t≈12s)
+        if(overviewPreset){
+          console.log('[Intro] Begin 6s camera pull to Overview preset');
+          const startPos = camera.position.clone();
+          const startTarget = controls.target.clone();
+          const endPos = new THREE.Vector3(overviewPreset.position.x, overviewPreset.position.y, overviewPreset.position.z);
+          const endTarget = new THREE.Vector3(overviewPreset.target.x, overviewPreset.target.y, overviewPreset.target.z);
+          let fallbackTriggered = false;
+          cameraAnimator.animateToPreset(overviewPreset, {
+            duration: 6000,
+            ease:'power2.inOut',
+            onUpdate: ()=>{},
+            onComplete: ()=>{
+              if(!fallbackTriggered){
+                lockCameraToPreset(overviewPreset);
+                console.log('[Intro] Camera pull complete (GSAP)', camera.position.toArray());
+              }
+            }
+          }).catch(()=>{ console.warn('[Intro] Camera animation promise rejected'); });
+          // Verify movement; if no movement after a couple frames, fallback to manual rAF tween
+          let checks = 0; const baseline = camera.position.clone();
+          function verify(){
+            checks++;
+            if(checks===3){
+              const dist = camera.position.distanceTo(baseline);
+              if(dist < 0.0005){
+                console.warn('[Intro] GSAP camera tween inactive, starting fallback');
+                fallbackTriggered = true;
+                cameraAnimator.stopAnimation();
+                const t0 = performance.now();
+                function step(now:number){
+                  const t = Math.min(1, (now-t0)/6000);
+                  const easeT = t*t*(3-2*t);
+                  camera.position.lerpVectors(startPos, endPos, easeT);
+                  controls.target.lerpVectors(startTarget, endTarget, easeT);
+                  controls.update();
+                  if(t<1) {
+                    requestAnimationFrame(step);
+                  } else {
+                    lockCameraToPreset(overviewPreset);
+                    console.log('[Intro] Camera pull complete (fallback)', camera.position.toArray());
+                  }
+                }
+                requestAnimationFrame(step);
+              }
+            }
+            if(checks<4) requestAnimationFrame(verify);
+          }
+          requestAnimationFrame(verify);
+        }
+      }, 6000);
+      // Boundary 2 (t=9s): still during camera pull; transition Spiral -> Base while camera continues
+      setTimeout(()=>{
+        animatePathTransition(0, 800); // Spiral -> Base (camera still moving until t=12s)
+      }, 9000);
+      // (Final stable composition reached near t=9.8s while camera completes glide by t=12s)
+      // Start fading overlay immediately (simple 1.5s fade)
+      fadeOutOverlayImmediate();
+    }
+  // Defer startIntro until after core textures/loop ready (started inside EXR load callback)
 
     // Legacy fade (still available for other UI fades)
     function animateFade(from: number, to: number, duration = 800) {
@@ -272,8 +469,8 @@ export default function GalaxyCanvas() {
       requestAnimationFrame(step);
     }
 
-    // Initialize phase panel visual state
-    phasePanelAPI.setPhase('nebula');
+  // Initialize phase panel visual state to Galaxy (prevent unwanted nebula morph)
+  phasePanelAPI.setPhase('galaxy');
 
     // Hook into resize AFTER onResize is defined
   const phasePanelResize = () => positionPhase(phasePanelAPI.element);
@@ -306,6 +503,9 @@ export default function GalaxyCanvas() {
       }
       if (pathPanelAPI.element && el.contains(pathPanelAPI.element)) {
         el.removeChild(pathPanelAPI.element);
+      }
+      if(statusPanelRef.current && statusPanelRef.current.element && el.contains(statusPanelRef.current.element)){
+        el.removeChild(statusPanelRef.current.element);
       }
     };
   }, [isClient]);

@@ -1,40 +1,33 @@
 "use client";
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import GalaxyCanvas from "./galaxy/GalaxyCanvas";
-import LoadingScreen from './components/LoadingScreen';
-import { ParticleSystemState } from './galaxy/types';
+import { LoadingScreen as LoadingOverlay } from './components/loading/LoadingScreen';
+import { LoadingScreenError, ParticleSystemState } from './components/loading/types';
 
 export default function Page() {
-  const [showLoading, setShowLoading] = useState(true);
-  const [loadingParticleState, setLoadingParticleState] = useState<ParticleSystemState | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [particleState, setParticleState] = useState<ParticleSystemState | null>(null);
 
-  const handleLoadingComplete = (particleState?: ParticleSystemState) => {
-    if (particleState) {
-      setLoadingParticleState(particleState);
-    }
-    setShowLoading(false);
-  };
+  const handleLoadingComplete = useCallback((finalState: ParticleSystemState) => {
+    setParticleState(finalState);
+    setIsLoading(false);
+  }, []);
+
+  const handleLoadingError = useCallback((error: LoadingScreenError) => {
+    console.error('Loading error encountered:', error);
+    setIsLoading(false);
+  }, []);
 
   return (
-    <>
-      {/* Loading screen overlay (renders first) */}
-      {showLoading && <LoadingScreen onComplete={handleLoadingComplete} />}
+    <main className="relative h-screen w-full overflow-hidden bg-black text-white">
+      <GalaxyCanvas loadingParticleState={particleState ?? undefined} />
 
-      {/* Galaxy renders only after loading completes to avoid premature WebGL usage */}
-      {!showLoading && (
-        <div style={{ 
-          opacity: showLoading ? 0 : 1, 
-          transition: 'opacity 0.5s ease-in-out',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%'
-        }}>
-          <GalaxyCanvas loadingParticleState={loadingParticleState || undefined} />
+      {isLoading && (
+        <div className="pointer-events-auto absolute inset-0 z-[2000]">
+          <LoadingOverlay onComplete={handleLoadingComplete} onError={handleLoadingError} />
         </div>
       )}
-    </>
+    </main>
   );
 }
