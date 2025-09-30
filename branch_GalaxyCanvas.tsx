@@ -13,7 +13,6 @@ import { generateGalaxyGeometry } from './presets/galaxy';
 import { generateDyingStarGeometry } from './presets/dyingStar';
 import { generateNeutronStarGeometry } from './presets/neutronStar';
 import { generateNeutronStar2Geometry, neutronStar2Axis } from './presets/neutronStar2';
-import { generateLegacyBaseGeometry } from './presets/legacyBase';
 
 import sayHello from '../utils/sayHello';
 import { CameraInfoPanel } from './debug-ui/CameraInfoPanel';
@@ -35,8 +34,7 @@ export default function GalaxyCanvas() {
   const [cameraPosition, setCameraPosition] = useState({ x: 59.3, y: 196, z: 355 });
   const [cameraTarget, setCameraTarget] = useState({ x: 0, y: 0, z: 0 });
   const [phase, setPhase] = useState<'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2'>('nebula');
-  // phaseMix in shader: 0.0 = nebula, 1.0 = galaxy
-  const [phaseMix, setPhaseMix] = useState(0.0);
+  const [phaseMix, setPhaseMix] = useState(1.0);
   const [dyingMix, setDyingMix] = useState(0.0);
 
   // Hydration-safe effect
@@ -101,7 +99,7 @@ export default function GalaxyCanvas() {
       maxParticleSize: { value: 8 },
       tint: { value: new THREE.Color('#fff') },
       glow: { value: false },
-      debugMode: { value: false },
+  debugMode: { value: false },
       superOpacity: { value: 1 },
       superScale: { value: 1 },
       hover: { value: 0 },
@@ -119,8 +117,7 @@ export default function GalaxyCanvas() {
       interaction: { value: new THREE.Vector4(0,0,0,0) },
       iRadius: { value: 11 },
       nebulaAmp: { value: 1.5 },
-  // Start in pure nebula (0.0). Galaxy will animate to 1.0
-  phaseMix: { value: 0.0 },
+      phaseMix: { value: 1.0 },
   dyingMix: { value: 0.0 },
   isNeutronStar2: { value: false },
   stellarMode: { value: false },
@@ -130,7 +127,6 @@ export default function GalaxyCanvas() {
   diskRotationRate: { value: 0.15 },
   jetLength: { value: 300 * 1.2 },
   debugMinimal: { value: false },
-  classicGalaxyMode: { value: true },
     };
 
     let material = new THREE.RawShaderMaterial({
@@ -158,15 +154,16 @@ export default function GalaxyCanvas() {
     }
 
     function getGeometryForPhase(phase: 'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2') {
+      if (phase === 'nebula') return generateNebulaGeometry(Im, e);
+      if (phase === 'galaxy') return generateGalaxyGeometry(Im, e);
       if (phase === 'dying') return generateDyingStarGeometry(Im, e);
       if (phase === 'neutron') return generateNeutronStarGeometry(Im, e);
       if (phase === 'neutronStar2') return generateNeutronStar2Geometry(Im, e);
-      // nebula/galaxy base handled by regenerateBase()
       return generateGalaxyGeometry(Im, e);
     }
     let currentPhase: 'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2' = 'nebula';
-    // placeholder; actual base generated via regenerateBase()
-    let s = new Float32Array(Im * 3);
+  let s = getGeometryForPhase(currentPhase);
+  logGeometryStats(s, currentPhase);
     const t = new Float32Array(Im * 2);
     let n = 0;
     for (let r = 0; r < 128; r++) {
@@ -204,20 +201,18 @@ export default function GalaxyCanvas() {
 
     // Helper to regenerate geometry for a new phase
     function regenerateGeometry(phase: 'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2') {
-      if(phase === 'nebula' || phase === 'galaxy') return; // keep base
-      if(phase === 'dying') return; // maintain morph continuity into dying collapse
-      const newS = phase === 'neutron' ? generateNeutronStarGeometry(Im, e) : (
-        phase === 'neutronStar2' ? generateNeutronStar2Geometry(Im, e) : generateGalaxyGeometry(Im, e)
-      );
+      const newS = getGeometryForPhase(phase);
+      logGeometryStats(newS, phase);
       geo.dispose();
       scene.remove(points);
       geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(newS, 3));
       geo.setAttribute('uv', new THREE.BufferAttribute(t, 2));
-      points = new THREE.Points(geo, (useSimple ? simpleMaterial : material) as THREE.Material);
+  points = new THREE.Points(geo, (useSimple ? simpleMaterial : material) as THREE.Material);
       points.rotation.x = Math.PI / 2;
       scene.add(points);
       if (phase === 'neutronStar2') {
+        // Update magnetic axis from geometry module export
         uniforms.magneticAxis.value.copy(neutronStar2Axis.normalize());
         uniforms.isNeutronStar2.value = true;
         uniforms.stellarMode.value = true;
@@ -267,33 +262,7 @@ export default function GalaxyCanvas() {
       targetZ: 0,
       focalDistance: 385,
       aperture: 500,
-      // Base geometry selection & shaping
-  useLegacyBase: true,
-  classicGalaxyMode: true,
-      arms: 4,
-      armSpread: 0.55,
-      armTwist: 1.8,
-      thickness: 0.015,      // relative to extent
-      radialJitter: 0.25,
-      armNoise: 0.9,
     };
-
-    // Regenerate the shared base geometry (nebula/galaxy/dying) without disrupting special phases
-    function regenerateBase() {
-      const base = settings.useLegacyBase
-        ? generateLegacyBaseGeometry(Im, e)
-        : generateGalaxyGeometry(Im, e, {
-            arms: settings.arms,
-            armSpread: settings.armSpread,
-            armTwist: settings.armTwist,
-            thickness: e * settings.thickness,
-            radialJitter: settings.radialJitter,
-            armNoise: settings.armNoise,
-          });
-      geo.setAttribute('position', new THREE.BufferAttribute(base, 3));
-      geo.attributes.position.needsUpdate = true;
-      logGeometryStats(base, settings.useLegacyBase ? 'legacyBase' : 'galaxyImproved');
-    }
     gui.add(settings, 'progress', 0, 1, 0.01).onChange((value: number) => {
       uniforms.fade.value = value;
     });
@@ -312,7 +281,6 @@ export default function GalaxyCanvas() {
       points.material.needsUpdate = true;
       console.log('[Debug] simplePoints =', v);
     });
-    debugFolder.add(settings, 'classicGalaxyMode').onChange((v:boolean)=>{ uniforms.classicGalaxyMode.value = v; });
     gui.add(settings, 'nebulaAmp', 0, 10, 0.1).onChange((value: number) => {
       uniforms.nebulaAmp.value = value;
     });
@@ -346,20 +314,6 @@ export default function GalaxyCanvas() {
       controls.target.z = value;
       controls.update();
     });
-    gui.add(settings, 'useLegacyBase').onChange(()=>{ regenerateBase(); });
-
-    const shapeFolder = gui.addFolder('Galaxy Shape');
-    shapeFolder.add(settings, 'arms', 1, 8, 1).onChange(regenerateBase);
-    shapeFolder.add(settings, 'armSpread', 0.05, 1.5, 0.01).onChange(regenerateBase);
-    shapeFolder.add(settings, 'armTwist', 0.0, 4.0, 0.05).onChange(regenerateBase);
-    shapeFolder.add(settings, 'thickness', 0.001, 0.08, 0.001).name('thickness(rel)').onChange(regenerateBase);
-    shapeFolder.add(settings, 'radialJitter', 0.0, 1.0, 0.01).onChange(regenerateBase);
-    shapeFolder.add(settings, 'armNoise', 0.0, 2.0, 0.01).onChange(regenerateBase);
-
-    // Initial base generation (override initial phase geometry)
-  // Initial legacy galaxy look
-  regenerateBase();
-  uniforms.phaseMix.value = 1.0; // legacy galaxy (classic inversion shows galaxy)
 
     // Textures
     const loader = new THREE.TextureLoader();
@@ -476,32 +430,29 @@ export default function GalaxyCanvas() {
 
     // Phase panel handler
     const handlePhaseChange = (target: 'nebula' | 'galaxy' | 'dying' | 'neutron' | 'neutronStar2') => {
-      // Map phases to phaseMix targets (nebula=0, galaxy=1, others reuse galaxy baseline before special effects)
       if (target === 'nebula') {
         animateDying(0.0, 900);
-        animatePhase(0.0, 1500); // nebula
+        animatePhase(1.0, 1500);
         setPhase('nebula');
         regenerateGeometry('nebula');
       } else if (target === 'galaxy') {
         animateDying(0.0, 900);
-        animatePhase(1.0, 1500); // galaxy
+        animatePhase(0.0, 1500);
         setPhase('galaxy');
         regenerateGeometry('galaxy');
       } else if (target === 'dying') {
-        // Move toward galaxy form (1.0) then collapse
-        animatePhase(1.0, 1200);
+        animatePhase(0.0, 1200);
         animateDying(1.0, 1800);
         setPhase('dying');
         regenerateGeometry('dying');
       } else if (target === 'neutron') {
         animateDying(0.0, 900);
-        // Use higher phaseMix values >1 if shader extends phases later; keep at 1.0 for now
-        animatePhase(1.0, 1500);
+        animatePhase(2.0, 1500);
         setPhase('neutron');
         regenerateGeometry('neutron');
       } else if (target === 'neutronStar2') {
         animateDying(0.0, 900);
-        animatePhase(1.0, 1500);
+        animatePhase(3.0, 1500);
         setPhase('neutronStar2');
         regenerateGeometry('neutronStar2');
       }
@@ -565,4 +516,3 @@ export default function GalaxyCanvas() {
     </div>
   );
 }
-// (legacy base generator extracted to presets/legacyBase.ts)

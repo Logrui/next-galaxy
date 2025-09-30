@@ -223,6 +223,14 @@ Edit the shaders in `app/galaxy/shaders.ts` to customize:
 - Animation timing
 - Interaction effects
 
+### **Galaxy Visual Modes**
+There are two selectable galaxy appearance paths (switchable live via the GUI):
+
+1. Classic Mode (default) – Recreates the historical spherical noisy distribution and interprets `phaseMix` inverted internally so that `phaseMix=1.0` displays the legacy galaxy look (matching commit `bcbcff9`). Toggle: Debug -> `classicGalaxyMode`.
+2. Improved Spiral – Disable `classicGalaxyMode` and (optionally) uncheck `useLegacyBase` to enable the parametric spiral disk + bulge generator. Tune structure in the `Galaxy Shape` folder (arms, armSpread, armTwist, thickness (relative), radialJitter, armNoise).
+
+Both modes share the same shaders; only the underlying position attribute changes when you regenerate geometry. This keeps GPU resources stable and allows instant A/B comparison.
+
 ### **Styling the UI**
 Modify `app/globals.css` to customize:
 - Loading screen appearance

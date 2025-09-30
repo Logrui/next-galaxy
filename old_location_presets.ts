@@ -1,0 +1,68 @@
+import * as THREE from 'three';
+
+export interface CameraPreset {
+  name: string;
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  target: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  description: string;
+}
+
+export const CAMERA_PRESETS: CameraPreset[] = [
+  {
+    name: "Overview",
+    position: { x: 59.3, y: 196, z: 355 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Default elevated overview of the galaxy"
+  },
+  {
+    name: "Top Down",
+    position: { x: 407.2, y: 298.2, z: 205 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Bird's eye view from directly above"
+  },
+  {
+    name: "Side View",
+    position: { x: 400, y: 0, z: 0 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Profile view from the side"
+  },
+  {
+    name: "Close Up",
+    position: { x: 0, y: 50, z: 150 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Close view inside the galaxy"
+  },
+  {
+    name: "Distant",
+    position: { x: 0, y: 300, z: 600 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Far back view of the entire galaxy"
+  },
+  {
+    name: "Angled",
+    position: { x: 200, y: 200, z: 200 },
+    target: { x: 0, y: 0, z: 0 },
+    description: "Diagonal view from corner perspective"
+  }
+];
+// Add Big Bang preset
+CAMERA_PRESETS.unshift({
+  name: 'Big Bang',
+  description: 'Earliest moment, close to origin',
+  position: { x: 29, y: 12.2, z: 15.1 },
+  target: { x: 2.5, y: -2.6, z: -1.7 }
+});
+
+export function applyCameraPreset(camera: THREE.Camera, controls: any, preset: CameraPreset): void {
+  camera.position.set(preset.position.x, preset.position.y, preset.position.z);
+  controls.target.set(preset.target.x, preset.target.y, preset.target.z);
+  controls.update();
+}
