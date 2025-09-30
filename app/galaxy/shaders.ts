@@ -156,24 +156,14 @@ void main(){
     pNebula = mix(pNebula, pNebula + pNoise, pt);
   }
 
-  // Galaxy path
+  // Galaxy path (legacy motion & color only)
   vec3 pGalaxy = p; float galaxyScale = ptScale;
   float galaxyProgress = smoothstep(envStart, duration, time);
   float galaxyR = .5 * rand(position.xz*.01);
   galaxyProgress = smoothstep(galaxyR,1.,galaxyProgress);
-  // Restored legacy warp motion
   pGalaxy.x += 100.0 * sin(time*.01 + pGalaxy.x);
   pGalaxy.y += 100.0 * cos(time*.02 + pGalaxy.y);
   pGalaxy.z += 100.0 * sin(time*.026 + pGalaxy.z);
-  // Added shaping to recover original flattened disk feel
-  float flatF = galaxyProgress; // more flattening as galaxy forms
-  pGalaxy.z *= mix(1.0, 0.06, flatF);
-  // Gentle spiral twist (arms) – angle proportional to radius and progress
-  float gR2 = length(pGalaxy.xy);
-  float spiralAngle = flatF * 0.0025 * gR2 + time * 0.03;
-  float csS = cos(spiralAngle);
-  float snS = sin(spiralAngle);
-  pGalaxy.xy = mat2(csS,-snS,snS,csS) * pGalaxy.xy;
   galaxyProgress = qinticOut(galaxyProgress);
   galaxyScale *= smoothstep(0.0,0.2,galaxyProgress);
   pGalaxy *= galaxyProgress;
@@ -209,7 +199,14 @@ void main(){
   if(fade > 0.0){ float d = smoothstep(0.0, 200.0, length(p)); opacity = mix(1.0, d, fade);} else { opacity = 1.0; }
   vScale = ptScale;
 
-  // Hover tint & interaction kept minimal (no ring warp to reduce risk)
+  // Noise-based subtle color variation (restored)
+  float tN = time * .05;
+  vec3 cN = .25 * vec3(
+    snoise(vec3(position.xy * .1, tN)),
+    snoise(vec3(position.xz * .1, tN)),
+    snoise(vec3(position.yz * .1, tN))
+  );
+
   vec4 worldPosition = modelMatrix * vec4(p,1.0);
   float hPD = distance(hoverPoint, worldPosition.xyz);
   float hD = smoothstep(30.0, 80.0, hPD);
@@ -217,14 +214,14 @@ void main(){
   hColor = mix(tint, hColor, hD);
   float opacity2 = mix(opacity, opacity * hoverOpacity, hD);
   opacity = mix(opacity, opacity2, hover);
-  vColor = mix(vColor, tint, fade*0.25);
+  vColor = mix(vColor, tint + cN, fade);
   vColor = mix(vColor, hColor, hover);
 
   // --- Restored interaction & planet ring orbit shaping ---
   float iD = distance(worldPosition.xyz, interaction.xyz);
   float iR = mix(iRadius, iRadius/2.0, fade);
   float sId = 1.0 - smoothstep(iR, iR*2.5, iD);
-  float ringAngle = atan(p.y, p.x) + time; // use original unscaled p for stability
+  float ringAngle = atan(position.y, position.x) + time; // restored original basis
   float ringY = 4.0 * snoise(vec3(p.xy, time*.1));
   vec3 ringPosition = interaction.xyz + vec3(iR*sin(ringAngle), ringY, iR*cos(ringAngle));
   float ringX = 4.0 * snoise(vec3(p.xy, time*.1));
@@ -236,7 +233,7 @@ void main(){
     float pDist = distance(worldPosition.xyz, planets[pi].xyz);
     float pR = mix(iRadius, iRadius/2.0, fade);
     float pId = 1.0 - smoothstep(pR, pR*2.5, pDist);
-    float pAngle = atan(p.y, p.x) + time;
+  float pAngle = atan(position.y, position.x) + time;
     float pRingY = 4.0 * snoise(vec3(p.xy, time*.1));
     vec3 pRingPos = planets[pi].xyz + vec3(pR*sin(pAngle), pRingY, pR*cos(pAngle));
     float pRingX = 4.0 * snoise(vec3(p.xy, time*.1));
@@ -254,10 +251,14 @@ void main(){
   float ap = mix(aperture, 200.0, fdAlpha);
   depth = 1.0 - smoothstep(0.0, ap, CoC);
   ptScale = mix(ptScale, 4.0*ptScale, 1.0 - depth);
-  if(glow){ ptScale = mix(ptScale, ptScale*.5, fdAlpha); ptScale *= 2.0*superScale; }
-  fogDepth = 1.0; // simplified fog (can restore near/far later)
-  float particleSize = ptScale * min(maxParticleSize, 1000.0 * size / max(1.0, distanceToCamera));
-  gl_PointSize = particleSize;
+  // Depth of field result already applied; reinforce ring scale boost after DoF like legacy
+  ptScale = mix(ptScale, ptScale*2.0, sId*interaction.w);
+  if(glow){ ptScale = mix(ptScale, ptScale*.5, fdAlpha); ptScale *=2.*superScale; }
+  float near = mix(1000.0, 0., fdAlpha);
+  float far = mix(1500.0, 525.0, fdAlpha);
+  fogDepth = 1.0 - smoothstep(near, far, -mvPos.z);
+  float maxS = mix(maxParticleSize, maxParticleSize*2.5, fade);
+  gl_PointSize = ptScale * min(maxS, 1000.0 * size / (-mvPos.z));
   gl_Position = projectionMatrix * mvPos;
 }
 `;
