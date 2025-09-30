@@ -9,35 +9,26 @@ interface CreateAnimationLoopOptions {
   settings: any; // from debug GUI
   cameraInfoElement: HTMLElement | null;
   controls: any; // OrbitControls
+  cameraInfoAPI?: { update: (camera: THREE.PerspectiveCamera, controls: any) => void };
 }
 
 export function createAnimationLoop(opts: CreateAnimationLoopOptions){
-  const { uniforms, renderer, scene, camera, material, settings, cameraInfoElement, controls } = opts;
+  const { uniforms, renderer, scene, camera, material, settings, cameraInfoElement, controls, cameraInfoAPI } = opts;
   let running = true;
 
   function updateCameraInfo(){
+    if(cameraInfoAPI){
+      cameraInfoAPI.update(camera, controls);
+      // also mirror into settings for GUI if present
+      settings.cameraX = Math.round(camera.position.x * 10) / 10;
+      settings.cameraY = Math.round(camera.position.y * 10) / 10;
+      settings.cameraZ = Math.round(camera.position.z * 10) / 10;
+      settings.targetX = Math.round(controls.target.x * 10) / 10;
+      settings.targetY = Math.round(controls.target.y * 10) / 10;
+      settings.targetZ = Math.round(controls.target.z * 10) / 10;
+      return;
+    }
     if(!cameraInfoElement) return;
-    const camX = Math.round(camera.position.x * 10) / 10;
-    const camY = Math.round(camera.position.y * 10) / 10;
-    const camZ = Math.round(camera.position.z * 10) / 10;
-    const targetX = Math.round(controls.target.x * 10) / 10;
-    const targetY = Math.round(controls.target.y * 10) / 10;
-    const targetZ = Math.round(controls.target.z * 10) / 10;
-    const xSpan = cameraInfoElement.querySelector('#cam-x');
-    const ySpan = cameraInfoElement.querySelector('#cam-y');
-    const zSpan = cameraInfoElement.querySelector('#cam-z');
-    if (xSpan) xSpan.textContent = camX.toString();
-    if (ySpan) ySpan.textContent = camY.toString();
-    if (zSpan) zSpan.textContent = camZ.toString();
-    const targetXSpan = cameraInfoElement.querySelector('#target-x');
-    const targetYSpan = cameraInfoElement.querySelector('#target-y');
-    const targetZSpan = cameraInfoElement.querySelector('#target-z');
-    if (targetXSpan) targetXSpan.textContent = targetX.toString();
-    if (targetYSpan) targetYSpan.textContent = targetY.toString();
-    if (targetZSpan) targetZSpan.textContent = targetZ.toString();
-    // synchronize settings back for GUI display
-    settings.cameraX = camX; settings.cameraY = camY; settings.cameraZ = camZ;
-    settings.targetX = targetX; settings.targetY = targetY; settings.targetZ = targetZ;
   }
 
   function frame(){

@@ -14,6 +14,7 @@ import { createCameraAnimator, CameraAnimator } from './camera_animator';
 import { createCameraInfoOverlay } from './ui/createCameraInfoOverlay';
 import { createPresetButtons } from './ui/createPresetButtons';
 import { createPhasePanel } from './ui/createPhasePanel';
+import { createPathPanel } from './ui/createPathPanel';
 import { getGeometryForPhase } from './presets';
 import { createUniforms } from './core/createUniforms';
 import { createMaterial } from './core/createMaterial';
@@ -58,8 +59,8 @@ export default function GalaxyCanvas() {
     el.appendChild(renderer.domElement);
 
     // Modular camera info overlay
-    const cameraInfoOverlay = createCameraInfoOverlay(el);
-    cameraInfoRef.current = cameraInfoOverlay.element;
+  const cameraInfoOverlay = createCameraInfoOverlay(el);
+  cameraInfoRef.current = cameraInfoOverlay.element;
 
 
     // Scene & Camera
@@ -159,6 +160,7 @@ export default function GalaxyCanvas() {
         settings,
         cameraInfoElement: cameraInfoRef.current,
         controls,
+        cameraInfoAPI: cameraInfoOverlay // pass full API so loop can call update()
       });
     });
 
@@ -224,6 +226,13 @@ export default function GalaxyCanvas() {
       }
     });
     requestAnimationFrame(()=>positionPhase(phasePanelAPI.element));
+
+    // Path variants panel (simple immediate uniform update; easing can be added later if desired)
+    const pathPanelAPI = createPathPanel({
+      container: el,
+      getMode: () => uniforms.extraPathMode.value as 0|1|2|3,
+      setMode: (m) => { uniforms.extraPathMode.value = m; }
+    });
 
     // Legacy fade (still available for other UI fades)
     function animateFade(from: number, to: number, duration = 800) {
@@ -294,6 +303,9 @@ export default function GalaxyCanvas() {
       }
       if (phasePanelAPI.element && el.contains(phasePanelAPI.element)) {
         el.removeChild(phasePanelAPI.element);
+      }
+      if (pathPanelAPI.element && el.contains(pathPanelAPI.element)) {
+        el.removeChild(pathPanelAPI.element);
       }
     };
   }, [isClient]);

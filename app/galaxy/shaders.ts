@@ -56,6 +56,11 @@ void main () {
 }
 `;
 
+import { NEBULA_PHASE_SNIPPET } from './shaders/nebulaPhase.glsl';
+import { GALAXY_PHASE_SNIPPET } from './shaders/galaxyPhase.glsl';
+import { DYING_STAR_PHASE_SNIPPET } from './shaders/dyingStarPhase.glsl';
+import { CUSTOM_PATHS_SNIPPET } from './shaders/customPaths.glsl';
+
 export const vertexSource = `
 precision highp float;
 
@@ -86,6 +91,8 @@ uniform float phaseMix;
 
 // Add missing dyingMix uniform for Dying Star phase
 uniform float dyingMix;
+// Extra path variants (0=Base,1=Spiral,2=Ring,3=Jets)
+uniform int extraPathMode;
 
 varying float opacity;
 varying vec3 vColor;
@@ -228,64 +235,11 @@ void main () {
   // Initialize base color to avoid undefined mixes
   vColor = color1;
 
-  // We compute nebula path only if fully nebula or during blend
-  vec3 pNebula = p;
-  float nebulaScale = ptScale;
-  vec3 nebulaColor = color1;
-  if(phaseMix < 0.999) {
-    float pr = smoothstep(0., duration, time);
-    float progress = qinticOut(pr);
-    float tile = progress*63.0;
-    float tile0 = floor(tile);
-    float tile1 = ceil(tile);
-    vec2 uv0 = getUVTile(tile0);
-    vec2 uv1 = getUVTile(tile1);
+  // Nebula phase (snippet)
+  ${NEBULA_PHASE_SNIPPET}
 
-    vec3 p1 = getPosition(uv0)*1000.;
-    vec3 p2 = getPosition(uv1)*1000.;
-    float t = fract(tile);
-    pNebula = interpolate ? mix(p1, p2, t) : p1;
-
-    vec4 color1 = texture2D(color, uv0);
-    vec4 color2 = texture2D(color, uv1);
-    vec4 _color = interpolate ? mix(color1, color2, t) : color1;
-    nebulaColor = _color.rgb;
-    
-    nebulaScale = texture2D(scaleTex, uv).r;
-    nebulaScale *= smoothstep(0. , .1, length(pNebula));
-
-    vec3 pNoise;
-    float amp = mix(nebulaAmp, nebulaAmp*.4, fade);
-    float t2 = time * .08;
-    pNoise.x = amp * snoise(vec3(position.xy*.01, t2));
-    pNoise.z = amp * snoise(vec3(position.zy*.01, t2 *1.1));
-    pNoise.y = pNoise.x;
-
-    pNebula.z = mix(pNebula.z, pNebula.z + 45.0 * snoise(vec3(pNebula.xy * .0075, time *.01)), fdAlpha);
-
-    float pt = smoothstep(.5, 1., progress);
-    pNebula = mix(pNebula, pNebula+pNoise, pt);
-  }
-
-  // Galaxy path (always compute color for Dying Star phase)
-  vec3 pGalaxy = p;
-  float galaxyScale = ptScale;
-  float galaxyProgress = smoothstep(envStart, duration, time);
-  float galaxyR = .5 * rand(position.xz * .01);
-  galaxyProgress = smoothstep(galaxyR, 1., galaxyProgress);
-
-  pGalaxy.x += 100.0 * sin(time*.01 + pGalaxy.x);
-  pGalaxy.y += 100.0 * cos(time*.02 + pGalaxy.y);
-  pGalaxy.z += 100.0 * sin(time*.026 + pGalaxy.z);
-
-  galaxyProgress = qinticOut(galaxyProgress);
-  galaxyScale *= smoothstep(0.0, 0.2, galaxyProgress);
-
-  pGalaxy *= galaxyProgress;
-
-  float galaxyRadius = sqrt(pGalaxy.x*pGalaxy.x+pGalaxy.y*pGalaxy.y);
-  vec3 galaxyColor = mix(color1, color2, smoothstep(0., 100.0, galaxyRadius));
-  galaxyColor = mix(galaxyColor, color3, smoothstep(100., 200.0, galaxyRadius));
+  // Galaxy phase (snippet)
+  ${GALAXY_PHASE_SNIPPET}
 
   // Blend primary two phases
   float blend = clamp(phaseMix, 0.0, 1.0);
@@ -293,30 +247,11 @@ void main () {
   float baseScale = mix(nebulaScale, galaxyScale, blend);
   vec3 baseColor = mix(nebulaColor, galaxyColor, blend);
 
-  // Dying star (condensed nebula collapse toward origin, but use per-particle galaxy color distribution)
-  if(dyingMix > 0.001) {
-    float collapse = dyingMix; // linear ease for now
-    // Pull positions toward origin and add inward noise swirl
-    vec3 dsP = baseP;
-    float swirlT = time * 0.2;
-    dsP.xy += 40.0 * (1.0-collapse) * vec2(
-      snoise(vec3(baseP.xy*0.02, swirlT)),
-      snoise(vec3(baseP.yx*0.02, swirlT*1.1))
-    );
-  dsP *= mix(0.5, 0.2, collapse); // shrink further as dyingMix approaches 1
-    // Scale intensifies and then diminishes
-    float dsScale = baseScale * mix(1.5, 0.4, collapse);
-  // Use the galaxyColor (from pGalaxy) for dying star color, to match Galaxy phase
-  vec3 dsColor = galaxyColor;
-  // Blend dying star on top
-  p = mix(baseP, dsP, dyingMix);
-  ptScale = mix(baseScale, dsScale, dyingMix);
-  vColor = mix(baseColor, dsColor, dyingMix);
-  } else {
-    p = baseP;
-    ptScale = baseScale;
-    vColor = baseColor;
-  }
+  // Custom extra paths (spiral/ring/jets)
+  ${CUSTOM_PATHS_SNIPPET}
+
+  // Dying star phase (snippet)
+  ${DYING_STAR_PHASE_SNIPPET}
 
   vLevels = step(10., length(p));
 
