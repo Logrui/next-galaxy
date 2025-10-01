@@ -57,9 +57,11 @@ function AudioControllerImpl({
   onStateChange, 
   onError 
 }: AudioControllerProps) {
+  const normalizedPreference = config.preference === 'ask' ? 'disabled' : config.preference;
+
   const stateRef = useRef<AudioState>({
-    enabled: config.preference === 'enabled',
-    preference: config.preference,
+    enabled: normalizedPreference === 'enabled',
+    preference: normalizedPreference,
     volume: config.volume,
     muted: false,
     loading: false
@@ -78,8 +80,10 @@ function AudioControllerImpl({
         // Preload audio assets (optional - only if assets exist)
         await loadAudioAssets();
         
-        stateRef.current.loading = false;
-        stateRef.current.enabled = config.preference === 'enabled';
+  const nextPreference = config.preference === 'ask' ? 'disabled' : config.preference;
+  stateRef.current.loading = false;
+  stateRef.current.preference = nextPreference;
+  stateRef.current.enabled = nextPreference === 'enabled';
         notifyStateChange();
       } catch (error) {
         stateRef.current.loading = false;
@@ -300,41 +304,7 @@ function AudioControllerImpl({
     }
   }, [phase, config.fadeInDuration, config.fadeOutDuration]);
 
-  // Audio preference UI (if preference is 'ask')
-  if (config.preference === 'ask' && !stateRef.current.loading) {
-    return (
-      <div 
-        className="fixed top-4 right-4 z-[240] p-4 rounded-lg"
-        style={{
-          background: 'var(--glass-primary)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid var(--border-glass)'
-        }}
-      >
-        <p className="text-sm text-gray-300 mb-3">
-          Enable loading screen audio?
-        </p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => controller.current.setPreference('enabled')}
-            className="px-3 py-1 text-xs rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition-colors"
-            aria-label="Enable audio for loading screen"
-          >
-            Yes
-          </button>
-          <button
-            onClick={() => controller.current.setPreference('disabled')}
-            className="px-3 py-1 text-xs rounded bg-gray-600/20 text-gray-400 hover:bg-gray-600/30 transition-colors"
-            aria-label="Disable audio for loading screen"
-          >
-            No
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // No visible UI for audio controller when preference is set
+  // The audio controller operates silently without rendering UI
   return null;
 }
 

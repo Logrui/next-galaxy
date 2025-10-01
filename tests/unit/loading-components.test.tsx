@@ -49,7 +49,6 @@ jest.mock('../../app/utils/AssetManager', () => ({
   },
 }));
 
-import ShimmerRing from '../../app/components/loading/ShimmerRing';
 import AudioController from '../../app/components/loading/AudioController';
 import { LoadingScreen } from '../../app/components/loading/LoadingScreen';
 import { LoadingPhase } from '../../app/components/loading/types';
@@ -102,6 +101,11 @@ jest.mock('three', () => ({
   NearestFilter: 9728,
   __esModule: true,
 }));
+
+// JSDOM doesn't implement elementsFromPoint; provide a no-op fallback for component diagnostics
+if (typeof document !== 'undefined' && typeof (document as any).elementsFromPoint !== 'function') {
+  (document as any).elementsFromPoint = () => [];
+}
 
 // Mock Three.js EXR Loader
 jest.mock('three/examples/jsm/loaders/EXRLoader.js', () => ({
@@ -156,21 +160,6 @@ jest.mock('../../app/utils/PerformanceConfig', () => ({
 
 // (Moved AssetManager mock earlier)
 
-describe('ShimmerRing Component', () => {
-  test('renders without crashing', () => {
-    render(<ShimmerRing phase={LoadingPhase.INITIALIZING} progress={0} />);
-    const shimmerRing = screen.getByTestId('shimmer-ring');
-    expect(shimmerRing).toBeInTheDocument();
-  });
-
-  test('shows progress during loading and completion at 100%', () => {
-    const { rerender } = render(<ShimmerRing phase={LoadingPhase.LOADING_ASSETS} progress={0.42} />);
-    expect(screen.getByText('42%')).toBeInTheDocument();
-    rerender(<ShimmerRing phase={LoadingPhase.COMPLETE} progress={1} />);
-    expect(screen.getByText('100%')).toBeInTheDocument();
-  });
-});
-
 describe('AudioController Component', () => {
   const askConfig: AudioControllerConfig = {
     preference: 'ask',
@@ -179,9 +168,9 @@ describe('AudioController Component', () => {
     fadeOutDuration: 500,
   };
 
-  test('renders preference UI when preference is ask', () => {
+  test('does not render UI when preference is ask', () => {
     render(<AudioController config={askConfig} phase={LoadingPhase.INITIALIZING} />);
-    expect(screen.getByText(/enable loading screen audio/i)).toBeInTheDocument();
+    expect(screen.queryByText(/enable loading screen audio/i)).not.toBeInTheDocument();
   });
 
   test('does not render UI when preference predetermined', () => {

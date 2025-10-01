@@ -118,10 +118,8 @@ describe('LoadingScreen Accessibility', () => {
       expect(loadingScreen).toHaveAttribute('aria-live', 'polite');
       expect(loadingScreen).toHaveAttribute('aria-busy', 'true');
 
-      // Check shimmer ring accessibility
-      const shimmerRing = screen.getByTestId('shimmer-ring');
-      expect(shimmerRing).toHaveAttribute('role', 'progressbar');
-      expect(shimmerRing).toHaveAttribute('aria-label');
+  // Check progress section visibility
+  expect(screen.getByTestId('loading-progress')).toBeInTheDocument();
     });
 
     it('should update aria-valuenow as progress changes', async () => {

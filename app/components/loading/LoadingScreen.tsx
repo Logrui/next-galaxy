@@ -1,8 +1,8 @@
 /**
  * LoadingScreen Component - Main Loading Screen Integration
  * 
- * Orchestrates the complete loading experience using ShimmerRing, AudioController,
- * ParticleExplosion, and AnimationSequence components.
+ * Orchestrates the complete loading experience using AudioController
+ * and the timeline-based AnimationSequence components.
  */
 
 'use client';
@@ -21,9 +21,7 @@ import {
   LoadingPhase,
   ParticleSystemState
 } from './types';
-import ShimmerRing from './ShimmerRing';
 import AudioController from './AudioController';
-import ParticleExplosion from './ParticleExplosion';
 import { AudioControllerConfig } from './audio-types';
 import { AnimationSequence } from './AnimationSequence';
 import {
@@ -159,6 +157,12 @@ export function LoadingScreen({
             })
         });
         await animationSequenceRef.current.play();
+        setState(prev => ({
+          ...prev,
+          currentPhase: LoadingPhase.COMPLETE,
+          animationProgress: 1
+        }));
+        completeWithParticleState();
       } catch (error) {
         onError({
           type: 'animation-error',
@@ -170,7 +174,7 @@ export function LoadingScreen({
         });
       }
     },
-    [onError]
+    [completeWithParticleState, onError]
   );
 
   const initiateLoadingSequence = useCallback(
@@ -328,39 +332,6 @@ export function LoadingScreen({
       onError,
       startAnimationSequence
     ]
-  );
-
-  const handleParticleComplete = useCallback(
-    (particleState: ParticleSystemState) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[LoadingScreen] particle sequence complete', {
-          animationProgress,
-          currentPhase
-        });
-      }
-      setState(prev => ({
-        ...prev,
-        currentPhase: LoadingPhase.COMPLETE,
-        animationProgress: 1
-      }));
-      completeWithParticleState(particleState);
-    },
-    [completeWithParticleState, animationProgress, currentPhase]
-  );
-
-  const handleParticleError = useCallback(
-    (message: string) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('[LoadingScreen] particle error', message);
-      }
-      onError({
-        type: 'animation-error',
-        message,
-        recoverable: true
-      });
-      completeWithParticleState();
-    },
-    [completeWithParticleState, onError]
   );
 
   const handleSkip = useCallback(() => {
@@ -579,7 +550,7 @@ export function LoadingScreen({
 
   return (
     <div
-      className="fixed inset-0 z-[3000] flex items-center justify-center bg-[#020617] text-white overflow-hidden"
+      className="fixed inset-0 z-[3000] flex items-center justify-center text-white overflow-hidden"
       data-testid="loading-screen"
       aria-label="Loading application"
       role="progressbar"
@@ -589,6 +560,7 @@ export function LoadingScreen({
       aria-live="polite"
       aria-busy={state.currentPhase !== LoadingPhase.COMPLETE}
       style={{
+        background: '#000',
         ...accessibility.getAccessibilityStyles(),
         ...(process.env.NODE_ENV !== 'production'
           ? { boxShadow: 'inset 0 0 0 4px rgba(56, 189, 248, 0.45)' }
@@ -598,20 +570,9 @@ export function LoadingScreen({
     >
       <accessibility.AnnouncementRegion />
 
-      {!animationsDisabled && !awaitingBegin && (
-        <ParticleExplosion
-          phase={state.currentPhase}
-          progress={state.animationProgress}
-          onComplete={handleParticleComplete}
-          onError={handleParticleError}
-        />
-      )}
-
-    <div className="absolute inset-0 pointer-events-none z-[120] bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.25),transparent_60%)]" />
-
-    <div className="relative z-[200] flex flex-col items-center justify-center w-full h-full px-6">
+  <div className="relative z-[200] flex flex-col items-center justify-center w-full h-full px-6">
         <div
-          className="absolute top-24 left-1/2 -translate-x-1/2 text-xs tracking-[0.6em] uppercase text-white/70 select-none"
+          className="absolute top-36 left-1/2 -translate-x-1/2 text-3xl md:text-5xl tracking-[0.2em] uppercase text-white/85 select-none drop-shadow-[0_6px_24px_rgba(14,165,233,0.35)]"
           aria-hidden
         >
           SYHC
@@ -651,23 +612,10 @@ export function LoadingScreen({
                 BEGIN
               </button>
             </div>
-            <button
-              onClick={() => initiateLoadingSequence({ audioPreference: 'disabled' })}
-              className="text-[10px] tracking-[0.35em] text-white/55 hover:text-white/80 transition-colors"
-            >
-              CONTINUE WITHOUT AUDIO
-            </button>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-8">
-            <ShimmerRing
-              size={260}
-              strokeWidth={4}
-              phase={state.currentPhase}
-              progress={ringProgress}
-            />
-
-            <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-6" data-testid="loading-progress">
+            <div className="flex flex-col items-center gap-3 text-center">
               <span className="text-xs uppercase tracking-[0.5em] text-white/45">Phase</span>
               <span
                 data-testid="loading-phase"
@@ -675,24 +623,45 @@ export function LoadingScreen({
               >
                 {state.currentPhase.replace(/_/g, ' ')}
               </span>
-              <span className="text-[10px] tracking-[0.4em] text-white/55">
-                {Math.round(ringProgress * 100)}% READY
-              </span>
-              <accessibility.AccessibleSkipButton
-                onSkip={handleSkip}
-                visible={
-                  !animationsDisabled &&
-                  state.currentPhase !== LoadingPhase.LOADING_ASSETS &&
-                  state.currentPhase !== LoadingPhase.COMPLETE
-                }
+            </div>
+
+            <div className="w-64 h-1.5 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full bg-white/70 transition-[width] duration-500 ease-out"
+                style={{ width: `${Math.round(ringProgress * 100)}%` }}
+                aria-hidden
               />
             </div>
+
+            <span className="text-[11px] tracking-[0.35em] text-white/65">
+              {Math.round(ringProgress * 100)}% READY
+            </span>
+
+            <accessibility.AccessibleSkipButton
+              onSkip={handleSkip}
+              visible={
+                !animationsDisabled &&
+                state.currentPhase !== LoadingPhase.LOADING_ASSETS &&
+                state.currentPhase !== LoadingPhase.COMPLETE
+              }
+            />
           </div>
         )}
 
         {!animationsDisabled && !awaitingBegin && (
           <div className="absolute top-8 right-8">
             <AudioController config={audioConfig} phase={state.currentPhase} />
+          </div>
+        )}
+
+        {awaitingBegin && (
+          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-[220]">
+            <button
+              onClick={() => initiateLoadingSequence({ audioPreference: 'disabled' })}
+              className="px-6 py-2 text-[10px] tracking-[0.32em] uppercase text-white/70 border border-white/30 rounded-full backdrop-blur-sm transition-colors hover:text-white hover:border-white/60"
+            >
+              Continue without audio
+            </button>
           </div>
         )}
       </div>

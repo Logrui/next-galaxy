@@ -1,4 +1,4 @@
-import { PathMode } from './createPathPanel';
+import { PathMode, PATH_LABELS } from './createPathPanel';
 
 export interface StatusPanelAPI {
   element: HTMLDivElement;
@@ -23,22 +23,11 @@ const PHASE_LABEL = (phaseMix: number, dyingMix: number) => {
   return basePhase;
 };
 
-const PATH_NAME: Record<PathMode, string> = {
-  0: 'Base',
-  1: 'Spiral',
-  2: 'Ring',
-  3: 'Jets',
-  4: 'Vortex',
-  5: 'Shells',
-  6: 'Neutron',
-  7: 'Helix'
-};
-
 export function createStatusPanel(opts: CreateStatusPanelOptions): StatusPanelAPI {
   const { container, getPhaseMix, getDyingMix, getFromPath, getToPath, getPathMix } = opts;
   const el = document.createElement('div');
   el.style.cssText = `
-    position:absolute; top:20px; right:20px; z-index:1100;
+    position:absolute; top:20px; right:400px; z-index:1100;
     background:rgba(0,0,0,0.6); padding:10px 14px; border:1px solid rgba(255,255,255,0.25);
     font-family:monospace; font-size:12px; color:#fff; min-width:180px; line-height:1.4;
     border-radius:6px; backdrop-filter:blur(6px); pointer-events:none; user-select:none;
@@ -65,10 +54,10 @@ export function createStatusPanel(opts: CreateStatusPanelOptions): StatusPanelAP
     const samePath = fp === tp;
     phaseEl.textContent = `Phase: ${phaseText} (mix ${(pm*100).toFixed(0)}%)`;
     if(samePath){
-      pathEl.textContent = `Path: ${PATH_NAME[tp]}`;
+  pathEl.textContent = `Path: ${PATH_LABELS[tp]}`;
       progEl.textContent = '';
     } else {
-      pathEl.textContent = `Path: ${PATH_NAME[fp]} -> ${PATH_NAME[tp]}`;
+  pathEl.textContent = `Path: ${PATH_LABELS[fp]} -> ${PATH_LABELS[tp]}`;
       progEl.textContent = `Transition ${(mx*100).toFixed(0)}%`;
     }
   }
