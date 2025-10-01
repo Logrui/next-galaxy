@@ -58,17 +58,28 @@ export function LoadingScreen({
 
   const [awaitingBegin, setAwaitingBegin] = useState(() => !skipAnimation);
   const [animationsDisabled, setAnimationsDisabled] = useState(() => !!skipAnimation);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(() => process.env.NODE_ENV !== 'production');
+  const [canvasStyleDebug, setCanvasStyleDebug] = useState<
+    { zIndex: string; pointerEvents: string; position: string } | null
+  >(null);
+
+  const { currentPhase, animationProgress, assetsLoaded, userInteracted } = state;
 
   const accessibility = useAccessibility(
-    state.currentPhase,
-    state.animationProgress
+    currentPhase,
+    animationProgress
   );
+
+  const toggleDebugPanel = useCallback(() => {
+    setDebugPanelOpen(prev => !prev);
+  }, []);
 
   const animationSequenceRef = useRef<AnimationSequence | null>(null);
   const beginTriggeredRef = useRef(false);
   const completionGuardRef = useRef(false);
   const assetProgressStopRef = useRef<(() => void) | null>(null);
   const progressRafRef = useRef<number | null>(null);
+  const assetProgressLogRef = useRef(-1);
 
   const audioConfig = useMemo<AudioControllerConfig>(
     () => ({
@@ -164,6 +175,14 @@ export function LoadingScreen({
 
   const initiateLoadingSequence = useCallback(
     async (options?: { skipTimeline?: boolean; audioPreference?: 'enabled' | 'disabled' }) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[LoadingScreen] initiateLoadingSequence called', {
+          options,
+          beginTriggered: beginTriggeredRef.current,
+          awaitingBegin,
+          animationsDisabled
+        });
+      }
       if (beginTriggeredRef.current) {
         if (options?.skipTimeline) {
           setAnimationsDisabled(true);
@@ -179,6 +198,13 @@ export function LoadingScreen({
 
       beginTriggeredRef.current = true;
       setAwaitingBegin(false);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[LoadingScreen] begin sequence accepted', {
+          audioPreferenceState,
+          requestedAudioPreference: options?.audioPreference,
+          skipTimeline: options?.skipTimeline
+        });
+      }
       const nextAudioPreference = options?.audioPreference ?? audioPreferenceState;
       if (options?.audioPreference && options.audioPreference !== audioPreferenceState) {
         setAudioPreferenceState(options.audioPreference);
@@ -197,7 +223,19 @@ export function LoadingScreen({
 
       const assetManager = getAssetManager();
       cleanupAssetProgress();
+  assetProgressLogRef.current = -1;
       assetProgressStopRef.current = assetManager.onProgress(progress => {
+        if (process.env.NODE_ENV !== 'production') {
+          const rounded = Math.round(progress.percentage);
+          if (rounded !== assetProgressLogRef.current) {
+            assetProgressLogRef.current = rounded;
+            console.log('[LoadingScreen] asset progress', {
+              percentage: progress.percentage,
+              loaded: progress.loaded,
+              total: progress.total
+            });
+          }
+        }
         setState(prev => ({
           ...prev,
           assetsLoaded: {
@@ -209,6 +247,9 @@ export function LoadingScreen({
 
       try {
         await loadEssentialAssets();
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[LoadingScreen] essential assets loaded');
+        }
         setState(prev => ({
           ...prev,
           assetsLoaded: {
@@ -222,6 +263,9 @@ export function LoadingScreen({
         beginTriggeredRef.current = false;
         setAwaitingBegin(true);
         cleanupAssetProgress();
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[LoadingScreen] essential asset load failed', error);
+        }
         onError({
           type: 'asset-load-failed',
           message:
@@ -237,6 +281,9 @@ export function LoadingScreen({
 
       preloadAssets()
         .then(() => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[LoadingScreen] optional asset preload complete');
+          }
           setState(prev => ({
             ...prev,
             assetsLoaded: {
@@ -247,7 +294,11 @@ export function LoadingScreen({
           }));
         })
         .catch(err => {
-          console.warn('Optional asset preload issue:', err);
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[LoadingScreen] optional asset preload issue', err);
+          } else {
+            console.warn('Optional asset preload issue:', err);
+          }
         });
 
       if (options?.skipTimeline || animationsDisabled) {
@@ -257,6 +308,12 @@ export function LoadingScreen({
           currentPhase: LoadingPhase.COMPLETE,
           animationProgress: 1
         }));
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[LoadingScreen] timeline skipped', {
+            skipTimeline: options?.skipTimeline,
+            animationsDisabled
+          });
+        }
         completeWithParticleState();
         return;
       }
@@ -275,6 +332,12 @@ export function LoadingScreen({
 
   const handleParticleComplete = useCallback(
     (particleState: ParticleSystemState) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[LoadingScreen] particle sequence complete', {
+          animationProgress,
+          currentPhase
+        });
+      }
       setState(prev => ({
         ...prev,
         currentPhase: LoadingPhase.COMPLETE,
@@ -282,11 +345,14 @@ export function LoadingScreen({
       }));
       completeWithParticleState(particleState);
     },
-    [completeWithParticleState]
+    [completeWithParticleState, animationProgress, currentPhase]
   );
 
   const handleParticleError = useCallback(
     (message: string) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[LoadingScreen] particle error', message);
+      }
       onError({
         type: 'animation-error',
         message,
@@ -298,6 +364,9 @@ export function LoadingScreen({
   );
 
   const handleSkip = useCallback(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[LoadingScreen] skip requested');
+    }
     setAnimationsDisabled(true);
     animationSequenceRef.current?.skipToEnd();
     animationSequenceRef.current?.dispose();
@@ -310,6 +379,9 @@ export function LoadingScreen({
   }, [completeWithParticleState]);
 
   const handleBegin = useCallback(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[LoadingScreen] BEGIN pressed');
+    }
     initiateLoadingSequence();
   }, [initiateLoadingSequence]);
 
@@ -419,6 +491,71 @@ export function LoadingScreen({
     []
   );
 
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+    console.log('[LoadingScreen] state snapshot', {
+      awaitingBegin,
+      animationsDisabled,
+      currentPhase,
+      animationProgress,
+      assetsLoaded,
+      userInteracted,
+      beginTriggered: beginTriggeredRef.current
+    });
+  }, [
+    awaitingBegin,
+    animationsDisabled,
+    currentPhase,
+    animationProgress,
+    assetsLoaded.audio,
+    assetsLoaded.fonts,
+    assetsLoaded.shaders,
+    assetsLoaded.textures,
+    assetsLoaded.totalProgress,
+    userInteracted
+  ]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      const { zIndex, pointerEvents, position } = window.getComputedStyle(canvas);
+      console.log('[LoadingScreen] canvas style snapshot', {
+        zIndex,
+        pointerEvents,
+        position
+      });
+      setCanvasStyleDebug({ zIndex, pointerEvents, position });
+    } else {
+      console.log('[LoadingScreen] no canvas element detected for style snapshot');
+      setCanvasStyleDebug(null);
+    }
+  }, [awaitingBegin, animationsDisabled]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+    const beginButton = document.querySelector('[data-testid="begin-button"]') as HTMLElement | null;
+    if (beginButton) {
+      const rect = beginButton.getBoundingClientRect();
+      console.log('[LoadingScreen] begin button rect', rect);
+      beginButton.style.outline = '2px solid #22d3ee';
+      beginButton.style.outlineOffset = '4px';
+    } else {
+      console.warn('[LoadingScreen] begin button not found in DOM');
+    }
+    const centerElements = document.elementsFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    console.log('[LoadingScreen] elements at viewport center', centerElements.map(el => {
+      if (!(el instanceof HTMLElement)) return el.tagName;
+      return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${el.className ? `.${el.className}` : ''}`;
+    }));
+  }, [awaitingBegin, animationsDisabled]);
+
   if (!state.webglSupported) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-black text-white text-center p-8">
@@ -442,7 +579,7 @@ export function LoadingScreen({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-[#020617] text-white overflow-hidden"
+      className="fixed inset-0 z-[3000] flex items-center justify-center bg-[#020617] text-white overflow-hidden"
       data-testid="loading-screen"
       aria-label="Loading application"
       role="progressbar"
@@ -451,7 +588,12 @@ export function LoadingScreen({
       aria-valuemax={100}
       aria-live="polite"
       aria-busy={state.currentPhase !== LoadingPhase.COMPLETE}
-      style={{ ...accessibility.getAccessibilityStyles() }}
+      style={{
+        ...accessibility.getAccessibilityStyles(),
+        ...(process.env.NODE_ENV !== 'production'
+          ? { boxShadow: 'inset 0 0 0 4px rgba(56, 189, 248, 0.45)' }
+          : undefined)
+      }}
       tabIndex={accessibility.config.focusManagement ? 0 : undefined}
     >
       <accessibility.AnnouncementRegion />
@@ -465,9 +607,9 @@ export function LoadingScreen({
         />
       )}
 
-      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.25),transparent_60%)]" />
+    <div className="absolute inset-0 pointer-events-none z-[120] bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.25),transparent_60%)]" />
 
-      <div className="relative z-10 flex flex-col items-center justify-center w-full h-full px-6">
+    <div className="relative z-[200] flex flex-col items-center justify-center w-full h-full px-6">
         <div
           className="absolute top-24 left-1/2 -translate-x-1/2 text-xs tracking-[0.6em] uppercase text-white/70 select-none"
           aria-hidden
@@ -554,6 +696,68 @@ export function LoadingScreen({
           </div>
         )}
       </div>
+
+      {process.env.NODE_ENV !== 'production' && (
+        <div className="absolute bottom-4 left-4 z-[500] pointer-events-auto text-[11px] font-mono">
+          <button
+            type="button"
+            onClick={toggleDebugPanel}
+            className="rounded-full border border-white/30 bg-black/70 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/70 transition-colors hover:border-white/60 hover:text-white"
+          >
+            {debugPanelOpen ? 'Hide Loading Debug' : 'Show Loading Debug'}
+          </button>
+          {debugPanelOpen && (
+            <div className="mt-3 max-w-xs space-y-2 rounded-lg border border-white/25 bg-black/80 p-3 text-[10px] leading-relaxed text-white/80 shadow-lg backdrop-blur-sm">
+              <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
+                <span className="text-white/50">awaitingBegin</span>
+                <span>{String(awaitingBegin)}</span>
+                <span className="text-white/50">animationsDisabled</span>
+                <span>{String(animationsDisabled)}</span>
+                <span className="text-white/50">phase</span>
+                <span>{currentPhase}</span>
+                <span className="text-white/50">progress</span>
+                <span>{animationProgress.toFixed(3)}</span>
+                <span className="text-white/50">ringProgress</span>
+                <span>{ringProgress.toFixed(3)}</span>
+                <span className="text-white/50">userInteracted</span>
+                <span>{String(userInteracted)}</span>
+                <span className="text-white/50">audioPref</span>
+                <span>{audioPreferenceState}</span>
+                <span className="text-white/50">skipProp</span>
+                <span>{String(skipAnimation)}</span>
+                <span className="text-white/50">beginTriggered</span>
+                <span>{String(beginTriggeredRef.current)}</span>
+              </div>
+              <div>
+                <p className="mb-1 text-white/50">assetsLoaded</p>
+                <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
+                  {Object.entries(assetsLoaded).map(([key, value]) => (
+                    <React.Fragment key={key}>
+                      <span className="text-white/50">{key}</span>
+                      <span>{typeof value === 'number' ? value.toFixed(3) : String(value)}</span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1 text-white/50">canvasStyle</p>
+                {canvasStyleDebug ? (
+                  <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
+                    {Object.entries(canvasStyleDebug).map(([key, value]) => (
+                      <React.Fragment key={key}>
+                        <span className="text-white/50">{key}</span>
+                        <span>{value}</span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/60">No canvas detected</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

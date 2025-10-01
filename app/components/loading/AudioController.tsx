@@ -304,7 +304,7 @@ function AudioControllerImpl({
   if (config.preference === 'ask' && !stateRef.current.loading) {
     return (
       <div 
-        className="fixed top-4 right-4 z-50 p-4 rounded-lg"
+        className="fixed top-4 right-4 z-[240] p-4 rounded-lg"
         style={{
           background: 'var(--glass-primary)',
           backdropFilter: 'blur(12px)',

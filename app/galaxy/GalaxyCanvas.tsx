@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
@@ -8,7 +8,6 @@ import GUI from 'lil-gui';
 import { random } from 'canvas-sketch-util';
 import createInputEvents from 'simple-input-events';
 import { fragmentSource, vertexSource } from './shaders';
-import sayHello from '../utils/sayHello';
 import { CAMERA_PRESETS } from './location_presets';
 import { createCameraAnimator, CameraAnimator } from './camera_animator';
 import { createCameraInfoOverlay } from './ui/createCameraInfoOverlay';
@@ -25,6 +24,8 @@ import { createInteraction } from './core/createInteraction';
 import { createAnimationLoop } from './core/createAnimationLoop';
 import { ParticleSystemState } from './types';
 
+const ENABLE_INTRO_SEQUENCE = true;
+
 interface GalaxyCanvasProps {
   loadingParticleState?: ParticleSystemState;
 }
@@ -40,8 +41,20 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
   const cameraAnimatorRef = useRef<CameraAnimator | null>(null);
   const statusPanelRef = useRef<{ element: HTMLDivElement; update: ()=>void; destroy: ()=>void } | null>(null);
   const loadingParticleStateRef = useRef<ParticleSystemState | null>(null);
+  const introReadyRef = useRef(false);
+  const introTriggeredRef = useRef(false);
+  const startIntroFnRef = useRef<() => void>(() => {});
   // Guard to avoid double init in React 18 StrictMode dev (mount -> unmount -> remount)
   const didInitRef = useRef(false);
+
+  const tryStartIntro = useCallback(() => {
+    if (!ENABLE_INTRO_SEQUENCE) return;
+    if (introTriggeredRef.current) return;
+    if (!introReadyRef.current) return;
+    if (!loadingParticleStateRef.current) return;
+    introTriggeredRef.current = true;
+    startIntroFnRef.current();
+  }, []);
 
   // Hydration-safe effect
   useEffect(() => {
@@ -52,8 +65,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
   useEffect(() => {
     if (loadingParticleState) {
       loadingParticleStateRef.current = loadingParticleState;
+      tryStartIntro();
     }
-  }, [loadingParticleState]);
+  }, [loadingParticleState, tryStartIntro]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -61,12 +75,11 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       return; // Prevent re-initialization (avoids camera reset after intro)
     }
     didInitRef.current = true;
+    introReadyRef.current = false;
+    introTriggeredRef.current = false;
     
     const el = containerRef.current;
     if (!el) return;
-
-    // Console branding like original
-    sayHello();
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -194,9 +207,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         controls,
         cameraInfoAPI: cameraInfoOverlay // pass full API so loop can call update()
       });
+      introReadyRef.current = true;
       if(ENABLE_INTRO_SEQUENCE){
-        console.log('[Intro] Starting intro sequence. Initial camera position:', camera.position.toArray());
-        startIntro();
+        tryStartIntro();
       }
       const statusTick = () => { if(statusPanelRef.current) statusPanelRef.current.update(); requestAnimationFrame(statusTick); };
       requestAnimationFrame(statusTick);
@@ -354,14 +367,19 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
 
     // Minimal black overlay that fades out automatically (no text)
     const overlay = document.createElement('div');
-    overlay.style.cssText = `position:absolute; inset:0; background:#000; z-index:1500; opacity:1; transition:opacity 1.5s ease;`;
+    overlay.style.cssText = `position:absolute; inset:0; background:#000; z-index:1500; opacity:0; transition:opacity 1.5s ease; pointer-events:none; display:none;`;
     el.appendChild(overlay);
-    function fadeOutOverlayImmediate(){
-      overlay.style.opacity = '0';
+    function revealSceneWithOverlayFade(){
+      overlay.style.display = 'block';
+      overlay.style.opacity = '1';
+      requestAnimationFrame(()=>{
+        overlay.style.opacity = '0';
+      });
       setTimeout(()=>{ if(el && overlay.parentElement===el) el.removeChild(overlay); }, 1600);
     }
 
     function startIntro(){
+      console.log('[Intro] Starting intro sequence. Initial camera position:', camera.position.toArray());
       // Camera refine (animate into exact Close Up framing if preset defined)
       if(closeUpPreset){ cameraAnimator.animateToPreset(closeUpPreset, { duration: 0.8, ease:'power2.inOut' }).catch(()=>{}); }
       // Hold initial dramatic state fully for 6s, then transition to Spiral/Galaxy
@@ -426,10 +444,11 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         animatePathTransition(0, 800); // Spiral -> Base (camera still moving until t=12s)
       }, 9000);
       // (Final stable composition reached near t=9.8s while camera completes glide by t=12s)
-      // Start fading overlay immediately (simple 1.5s fade)
-      fadeOutOverlayImmediate();
+  // Start fading overlay immediately (simple 1.5s fade)
+  revealSceneWithOverlayFade();
     }
-  // Defer startIntro until after core textures/loop ready (started inside EXR load callback)
+    startIntroFnRef.current = startIntro;
+  // Defer startIntro until after core textures/loop ready and Begin clicked
 
     // Legacy fade (still available for other UI fades)
     function animateFade(from: number, to: number, duration = 800) {
@@ -478,6 +497,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
 
     // Add to cleanup
     return () => {
+      introReadyRef.current = false;
+      introTriggeredRef.current = false;
+      loadingParticleStateRef.current = null;
       window.removeEventListener('resize', onResize);
       window.removeEventListener('resize', phasePanelResize);
   interaction.dispose();
@@ -498,6 +520,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       if (presetButtonsRef.current && el.contains(presetButtonsRef.current)) {
         el.removeChild(presetButtonsRef.current);
       }
+      if (overlay.parentElement === el) {
+        el.removeChild(overlay);
+      }
       if (phasePanelAPI.element && el.contains(phasePanelAPI.element)) {
         el.removeChild(phasePanelAPI.element);
       }
@@ -508,7 +533,7 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         el.removeChild(statusPanelRef.current.element);
       }
     };
-  }, [isClient]);
+  }, [isClient, tryStartIntro]);
 
   if (!isClient) {
     return <div style={{ width: '100%', height: '100vh', background: '#000' }} />;
