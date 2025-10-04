@@ -271,16 +271,37 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
 
     const pathPanel = new PathPanel(el, {
       getMode: () => uniforms.toPathMode.value as any,
-      setMode: (m) => {
-        // Path transition with fromPath/toPath logic
-        uniforms.fromPathMode.value = uniforms.toPathMode.value;
+      setMode: (m, duration = 1400) => {
+        // Path transition with fromPath/toPath logic (matches original animatePathTransition)
+        const startMode = uniforms.toPathMode.value;
+        if (startMode === m) return; // Already at target mode
+        
+        uniforms.fromPathMode.value = startMode;
         uniforms.toPathMode.value = m;
         uniforms.pathMix.value = 0.0;
-        parameterManager.transitionToParameters({ pathMode: m }, 1600).then(() => {
-          uniforms.extraPathMode.value = m;
-          uniforms.fromPathMode.value = m;
-          uniforms.pathMix.value = 1.0;
-        });
+        
+        // Animate pathMix from 0 to 1 for smooth transition
+        const startTime = performance.now();
+        
+        const animatePathMix = (now: number) => {
+          const elapsed = now - startTime;
+          const t = Math.min(1, elapsed / duration);
+          const eased = t * t * (3 - 2 * t); // smoothstep easing
+          
+          uniforms.pathMix.value = eased;
+          
+          if (t < 1) {
+            requestAnimationFrame(animatePathMix);
+          } else {
+            // Finalize: set all references to target mode
+            uniforms.extraPathMode.value = m;
+            uniforms.fromPathMode.value = m;
+            uniforms.toPathMode.value = m;
+            uniforms.pathMix.value = 1.0;
+          }
+        };
+        
+        requestAnimationFrame(animatePathMix);
       },
     });
     uiManager.addPanel('path', pathPanel);
@@ -375,8 +396,8 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         // Use ParameterManager for smooth transitions (replaces seqAnimateNumber)
         parameterManager.transitionToParameters({ dyingMix: 0.0 }, 600);
         parameterManager.transitionToParameters({ phaseMix: 0.0 }, 600);
-        // Vortex -> Spiral path transition
-        pathPanel.setMode(1); // Use the panel's setMode which now uses ParameterManager
+        // Vortex -> Spiral path transition (800ms duration)
+        pathPanel.setMode(1, 800);
         // Camera begins long 6s pull-out toward Overview (finishes at t≈12s)
         if(overviewPreset){
           console.log('[Intro] Begin 6s camera pull to Overview preset');
@@ -430,7 +451,7 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       }, 6000);
       // Boundary 2 (t=9s): still during camera pull; transition Spiral -> Base while camera continues
       setTimeout(()=>{
-        pathPanel.setMode(0); // Spiral -> Base (camera still moving until t=12s)
+        pathPanel.setMode(0, 800); // Spiral -> Base (800ms duration, camera still moving until t=12s)
       }, 9000);
       // (Final stable composition reached near t=9.8s while camera completes glide by t=12s)
   // Start fading overlay immediately (simple 1.5s fade)

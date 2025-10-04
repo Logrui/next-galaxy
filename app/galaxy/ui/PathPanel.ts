@@ -20,7 +20,7 @@ export const PATH_LABELS: Record<PathMode, string> = {
 
 interface PathPanelOptions {
   getMode(): PathMode;
-  setMode(mode: PathMode): void;
+  setMode(mode: PathMode, duration?: number): void;
 }
 
 /**
@@ -116,12 +116,13 @@ export class PathPanel extends Panel {
   }
 
   /**
-   * Sets the path mode and refreshes the display.
-   * @param mode Path mode to set.
+   * Sets the active path mode with optional transition duration.
+   * @param mode The target PathMode.
+   * @param duration Optional duration in milliseconds for the transition animation.
    */
-  setMode(mode: PathMode): void {
-    this.options.setMode(mode);
-    this.refresh();
+  public setMode(mode: PathMode, duration?: number): void {
+    this.options.setMode(mode, duration);
+    // Note: refresh is called after animation completes or by button click handler
   }
 
   /**
