@@ -18,7 +18,7 @@ export function createUniforms() {
     size: { value: 2.6 },
     nebula: { value: false },
     focalDistance: { value: 385 },
-    aperture: { value: 500 },
+    aperture: { value: 300 },
     maxParticleSize: { value: 8 },
     tint: { value: new THREE.Color('#fff') },
     glow: { value: false },
