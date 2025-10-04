@@ -207,11 +207,26 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         // Update status panel
         statusPanel.update({});
         
-        // Update uniforms time
-        uniforms.time.value += deltaTime;
+        // Update uniforms time (FIXED: use constant 0.05 per frame like original)
+        uniforms.time.value += 0.05;
         
-        // Render scene
+        // Sync debug GUI settings to uniforms (FIXED: restore GUI sync)
+        uniforms.fdAlpha.value = settings.fdAlpha;
+        uniforms.superScale.value = settings.superScale;
+        
+        // Dual-pass rendering for smooth particles (FIXED: restore glow pass)
+        // Pass 1: Glow layer
         renderer.clear();
+        material.uniforms.glow.value = 1;
+        material.uniforms.superOpacity.value = settings.fdAlpha;
+        material.uniforms.superScale.value = settings.superScale;
+        renderer.render(scene, camera);
+        
+        // Pass 2: Main layer (over glow)
+        renderer.clearDepth();
+        material.uniforms.glow.value = 0;
+        material.uniforms.fade.value = settings.progress;
+        material.uniforms.superOpacity.value = 1;
         renderer.render(scene, camera);
       };
       animationManager.addFrameCallback(renderCallback);
