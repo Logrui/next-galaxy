@@ -242,7 +242,7 @@ Single Next.js project structure:
   - **File**: `app/galaxy/GalaxyCanvas.tsx`
   - **Dependency**: Requires T023
 
-- [ ] **T025** Refactor GalaxyCanvas.tsx (Part 3: Animation & Interaction)
+- [x] **T025** Refactor GalaxyCanvas.tsx (Part 3: Animation & Interaction)
   - Initialize AnimationManager and register frame callbacks
   - Replace createAnimationLoop with AnimationManager callbacks
   - Initialize InteractionManager (replace createInteraction)

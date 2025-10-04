@@ -193,6 +193,10 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     // Debug GUI
     const { gui, settings, dispose: disposeGUI } = createDebugGUI({ uniforms, camera, controls });
 
+    // Initialize AnimationManager (NEW - replaces createAnimationLoop)
+    const animationManager = new AnimationManager();
+    animationManager.start();
+
     // Textures from Next public/
     const loader = new THREE.TextureLoader();
     loader.load('/scale-texture.png', (tex) => {
@@ -211,42 +215,46 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       texture.minFilter = THREE.NearestFilter;
       texture.magFilter = THREE.NearestFilter;
       material.uniforms.posTex.value = texture;
-      // Start animation loop once texture ready
-      animationHandle = createAnimationLoop({
-        uniforms,
-        renderer,
-        scene,
-        camera,
-        material,
-        settings,
-        cameraInfoElement: cameraInfoRef.current,
-        controls,
-        cameraInfoAPI: cameraInfoOverlay // pass full API so loop can call update()
-      });
+      
+      // Register animation callbacks (NEW - replaces createAnimationLoop)
+      const renderCallback = (deltaTime: number) => {
+        // Update controls
+        controls.update();
+        
+        // Update camera info display
+        if (cameraInfoOverlay) {
+          cameraInfoOverlay.update(camera, controls);
+        }
+        
+        // Update uniforms time
+        uniforms.time.value += deltaTime;
+        
+        // Render scene
+        renderer.clear();
+        renderer.render(scene, camera);
+      };
+      animationManager.addFrameCallback(renderCallback);
+      
+      // Status panel update callback
+      const statusCallback = () => {
+        if (statusPanelRef.current) {
+          statusPanelRef.current.update();
+        }
+      };
+      animationManager.addFrameCallback(statusCallback);
+      
       introReadyRef.current = true;
       if(ENABLE_INTRO_SEQUENCE){
         tryStartIntro();
       }
-      const statusTick = () => { if(statusPanelRef.current) statusPanelRef.current.update(); requestAnimationFrame(statusTick); };
-      requestAnimationFrame(statusTick);
     });
 
-    // Interaction
-    const interaction = createInteraction({
-      element: el,
-      renderer,
-      camera,
-      pointer: pointerRef.current,
-      raycaster: raycasterRef.current,
-      invisiblePlane,
-      debugSphere: debugSphere,
-      uniforms,
-    });
-
-    // Animation loop handle
-    let animationHandle: { stop: () => void } | null = null;
+    // Initialize InteractionManager (NEW - replaces createInteraction)
+    const interactionManager = new InteractionManager(sceneManager, stateManager);
+    interactionManager.setMode('free'); // Default to free mode
 
     // NOTE: Window resize is now handled automatically by SceneManager
+    // NOTE: Animation loop is now handled by AnimationManager
 
     // Phase panel module integration
     function positionPhase(panel: HTMLElement){
@@ -510,9 +518,12 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       introTriggeredRef.current = false;
       loadingParticleStateRef.current = null;
       window.removeEventListener('resize', phasePanelResize);
-  interaction.dispose();
-  disposeGUI();
-  if(animationHandle) animationHandle.stop();
+      
+      // Manager cleanup (NEW)
+      animationManager.dispose();
+      interactionManager.dispose();
+      
+      disposeGUI();
       if (cameraAnimatorRef.current) {
         cameraAnimatorRef.current.dispose();
       }
