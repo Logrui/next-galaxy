@@ -156,6 +156,17 @@ export class GalaxyStateManager {
   }
 
   /**
+   * Set UI panel visibility (convenience method)
+   * @param panelId Unique identifier for the panel
+   * @param isVisible Whether the panel should be visible
+   */
+  public setUIPanelVisibility(panelId: string, isVisible: boolean): void {
+    const newUIPanels = new Map(this.state.uiPanels);
+    newUIPanels.set(panelId, isVisible);
+    this.updateState({ uiPanels: newUIPanels });
+  }
+
+  /**
    * Notify all listeners of state change
    */
   private notifyListeners(): void {
