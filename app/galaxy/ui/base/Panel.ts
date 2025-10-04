@@ -39,7 +39,7 @@ export abstract class Panel {
   protected setupStyles(): void {
     Object.assign(this.element.style, {
       position: 'fixed',
-      background: 'rgba(10, 10, 15, 0.7)', // Semi-transparent dark
+      background: 'rgba(0, 0, 0, 0.7)', // Semi-transparent pure OLED black
       backdropFilter: 'blur(10px)',
       WebkitBackdropFilter: 'blur(10px)', // Safari support
       borderRadius: '12px',

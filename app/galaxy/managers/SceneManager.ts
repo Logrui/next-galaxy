@@ -65,7 +65,7 @@ export class SceneManager {
    */
   private initializeScene(): THREE.Scene {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0f); // Deep space black
+    scene.background = new THREE.Color(0x000000); // Pure OLED black
     return scene;
   }
 
