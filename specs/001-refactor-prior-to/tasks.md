@@ -225,102 +225,108 @@ Single Next.js project structure:
 ### Phase 3.9: Week 3 Integration - GalaxyCanvas Refactoring
 **Goal**: Integrate managers into GalaxyCanvas.tsx using Side-by-Side Migration
 
-- [x] **T023** Refactor GalaxyCanvas.tsx to use manager hooks (Part 1: State & Scene)
-  - Import all manager hooks
-  - Replace useRef state management with useGalaxyStateManager
-  - Replace inline Three.js setup with useSceneManager
-  - Maintain existing functionality (Side-by-Side Migration)
-  - **Reference**: quickstart.md "Quick Start: Basic Usage"
+- [ ] **T023** Refactor GalaxyCanvas.tsx to use manager hooks (Part 1: Imports & State)
+  - Add all manager and panel imports
+  - Initialize GalaxyStateManager via hook
+  - Keep existing code working (additive only)
+  - Git commit after completion
+  - **Reference**: INTEGRATION_GUIDE.md Phase 1
   - **File**: `app/galaxy/GalaxyCanvas.tsx`
-  - **Status**: Integration guide created (INTEGRATION_GUIDE.md)
 
-- [x] **T024** Refactor GalaxyCanvas.tsx to use manager hooks (Part 2: Animation & Interaction)
-  - Replace inline animation loop with useAnimationManager
-  - Migrate frame callbacks to AnimationManager.addFrameCallback()
-  - Replace inline input handling with useInteractionManager
-  - Remove redundant useEffect hooks
-  - **Reference**: quickstart.md "Common Patterns"
+- [ ] **T024** Refactor GalaxyCanvas.tsx (Part 2: Scene Management)
+  - Replace inline Three.js setup with SceneManager
+  - Remove manual resize handler (SceneManager handles it)
+  - Update cleanup to use sceneManager.dispose()
+  - Git commit after completion
+  - **Reference**: INTEGRATION_GUIDE.md Phase 2 Steps 1-4
   - **File**: `app/galaxy/GalaxyCanvas.tsx`
   - **Dependency**: Requires T023
-  - **Status**: Integration guide created (INTEGRATION_GUIDE.md)
 
-- [x] **T025** Refactor GalaxyCanvas.tsx to use manager hooks (Part 3: Parameters & UI)
-  - Replace inline uniform management with useParameterManager
-  - Replace inline panel creation with useUIManager
-  - Migrate all panels to UIManager.addPanel()
-  - Remove manual resource cleanup (now handled by managers)
-  - **Reference**: quickstart.md "Manager Reference"
+- [ ] **T025** Refactor GalaxyCanvas.tsx (Part 3: Animation & Interaction)
+  - Initialize AnimationManager and register frame callbacks
+  - Replace createAnimationLoop with AnimationManager callbacks
+  - Initialize InteractionManager (replace createInteraction)
+  - Git commit after completion
+  - **Reference**: INTEGRATION_GUIDE.md Phase 2 Steps 5-8
   - **File**: `app/galaxy/GalaxyCanvas.tsx`
   - **Dependency**: Requires T024
-  - **Status**: Integration guide created (INTEGRATION_GUIDE.md)
 
-- [x] **T026** Remove legacy code from GalaxyCanvas.tsx
-  - Delete redundant refs no longer needed with managers
-  - Remove manual cleanup logic (replaced by manager dispose)
-  - Simplify component to < 150 lines
-  - Verify cyclomatic complexity < 10
+- [ ] **T026** Refactor GalaxyCanvas.tsx (Part 4: Parameters & UI Panels)
+  - Initialize ParameterManager
+  - Initialize UIManager and migrate all panels
+  - Update phase/path animations to use ParameterManager
+  - Git commit after completion
+  - **Reference**: INTEGRATION_GUIDE.md Phase 2 Steps 9-12
   - **File**: `app/galaxy/GalaxyCanvas.tsx`
   - **Dependency**: Requires T025
-  - **Status**: Integration guide created (INTEGRATION_GUIDE.md)
+
+- [ ] **T027** Refactor GalaxyCanvas.tsx (Part 5: Cleanup & Validation)
+  - Remove redundant refs and manual cleanup logic
+  - Verify all features work identically
+  - Run ESLint and fix any issues
+  - Git commit after completion
+  - **Reference**: INTEGRATION_GUIDE.md Phase 3
+  - **File**: `app/galaxy/GalaxyCanvas.tsx`
+  - **Dependency**: Requires T026
 
 ---
 
 ## Phase 3.10: Polish & Validation
 
-### Documentation & Types
+### Documentation & Types (COMPLETED)
 
-- [x] **T027** [P] Add JSDoc documentation to GalaxyStateManager public methods
+- [x] **T028** [P] Add JSDoc documentation to GalaxyStateManager public methods
   - Document all public methods with @param, @returns, @example
   - **File**: `app/galaxy/managers/GalaxyStateManager.ts`
 
-- [x] **T028** [P] Add JSDoc documentation to SceneManager public methods
+- [x] **T029** [P] Add JSDoc documentation to SceneManager public methods
   - Document resource lifecycle patterns
   - **File**: `app/galaxy/managers/SceneManager.ts`
 
-- [x] **T029** [P] Add JSDoc documentation to AnimationManager public methods
+- [x] **T030** [P] Add JSDoc documentation to AnimationManager public methods
   - Document frame callback patterns and performance tips
   - **File**: `app/galaxy/managers/AnimationManager.ts`
 
-- [x] **T030** [P] Add JSDoc documentation to InteractionManager public methods
+- [x] **T031** [P] Add JSDoc documentation to InteractionManager public methods
   - Document mode switching behavior
   - **File**: `app/galaxy/managers/InteractionManager.ts`
 
-- [x] **T031** [P] Add JSDoc documentation to ParameterManager public methods
+- [x] **T032** [P] Add JSDoc documentation to ParameterManager public methods
   - Document transition promises and parameter bounds
   - **File**: `app/galaxy/managers/ParameterManager.ts`
 
-- [x] **T032** [P] Add JSDoc documentation to UIManager public methods
+- [x] **T033** [P] Add JSDoc documentation to UIManager public methods
   - Document panel lifecycle
   - **File**: `app/galaxy/managers/UIManager.ts`
 
-**Parallel Execution**: T027-T032 can run simultaneously (different files)
+**Parallel Execution**: T028-T033 can run simultaneously (different files)
 
 ---
 
-### Quality & Validation
+### Quality & Validation (COMPLETED)
 
-- [x] **T033** TypeScript strict mode verification across all new modules
+- [x] **T034** TypeScript strict mode verification across all new modules
   - Verify no `any` types without explicit justification
   - Check all exports have explicit type annotations
   - Ensure 100% type coverage
   - **Files**: All `app/galaxy/managers/*.ts` and `app/galaxy/hooks/*.ts`
   - **Reference**: Constitution Principle III
 
-- [x] **T034** ESLint verification for all new modules
+- [x] **T035** ESLint verification for all new modules
   - Run ESLint on managers/, hooks/, ui/base/
   - Fix all warnings (target: zero warnings)
   - **Files**: `app/galaxy/managers/`, `app/galaxy/hooks/`, `app/galaxy/ui/base/`
   - **Reference**: Constitution Principle III
 
-- [x] **T035** Performance validation
+- [ ] **T036** Performance validation (Post-Integration)
   - Manual frame rate testing (verify 60fps maintained)
   - Memory profiling (verify < 500MB extended sessions)
   - Check initialization overhead (< 100ms)
   - Animation callback execution time monitoring (< 10ms per frame)
-  - **Reference**: Constitution Principle I, plan.md Success Metrics
-  - **Status**: Validation checklist created (VALIDATION_CHECKLIST.md)
+  - **Reference**: Constitution Principle I, VALIDATION_CHECKLIST.md
+  - **Dependency**: Requires T027
 
-- [x] **T036** Final manual validation checklist
+- [ ] **T037** Final manual validation checklist (Post-Integration)
   - All existing features work identically (zero user-facing changes)
   - Hot reload works correctly
   - React strict mode (double-mounting) handled properly
@@ -328,8 +334,8 @@ Single Next.js project structure:
   - Mode switching (fixed/free) works seamlessly
   - Visual parameter transitions are smooth
   - UI panels show/hide correctly
-  - **Reference**: spec.md Acceptance Scenarios
-  - **Status**: Validation checklist created (VALIDATION_CHECKLIST.md)
+  - **Reference**: spec.md Acceptance Scenarios, VALIDATION_CHECKLIST.md
+  - **Dependency**: Requires T036
 
 ---
 
