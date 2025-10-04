@@ -72,9 +72,12 @@ export class PathPanel extends Panel {
 
   protected setupStyles(): void {
     super.setupStyles();
-    this.element.style.top = '200px';
+    // Left side, below PresetButtonsPanel
+    this.element.style.top = '380px';
     this.element.style.left = '20px';
-    this.element.style.minWidth = '180px';
+    this.element.style.minWidth = '340px';
+    this.element.style.fontFamily = "'monospace'";
+    this.element.style.fontSize = '12px';
   }
 
   protected setupEventListeners(): void {

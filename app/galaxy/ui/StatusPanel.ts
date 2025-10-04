@@ -42,9 +42,10 @@ export class StatusPanel extends Panel {
 
   protected setupStyles(): void {
     super.setupStyles();
-    this.element.style.top = '20px';
+    this.element.style.top = '160px'; // Below PhasePanel (20 + ~120 height + 20 gap)
     this.element.style.right = '20px';
     this.element.style.minWidth = '200px';
+    this.element.style.maxWidth = '420px';
     this.element.style.pointerEvents = 'none';
     this.element.style.userSelect = 'none';
   }

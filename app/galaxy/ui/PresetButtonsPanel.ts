@@ -36,9 +36,12 @@ export class PresetButtonsPanel extends Panel {
 
   protected setupStyles(): void {
     super.setupStyles();
-    this.element.style.top = '20px';
-    this.element.style.left = '220px';
+    // Left side, below CameraInfoPanel
+    this.element.style.top = '200px';
+    this.element.style.left = '20px';
     this.element.style.minWidth = '240px';
+    this.element.style.fontFamily = "'Courier New', monospace";
+    this.element.style.fontSize = '12px';
   }
 
   protected setupEventListeners(): void {

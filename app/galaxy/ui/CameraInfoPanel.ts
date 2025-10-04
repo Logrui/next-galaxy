@@ -47,10 +47,10 @@ export class CameraInfoPanel extends Panel {
 
   protected setupStyles(): void {
     super.setupStyles();
-    // Additional custom positioning
+    // Left side, top position
     this.element.style.top = '20px';
     this.element.style.left = '20px';
-    this.element.style.minWidth = '180px';
+    this.element.style.minWidth = '200px';
     this.element.style.fontFamily = "'Courier New', monospace";
     this.element.style.fontSize = '12px';
   }

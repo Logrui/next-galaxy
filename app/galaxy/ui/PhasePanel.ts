@@ -44,9 +44,16 @@ export class PhasePanel extends Panel {
 
   protected setupStyles(): void {
     super.setupStyles();
+    // Right side, top position
     this.element.style.top = '20px';
     this.element.style.right = '20px';
     this.element.style.minWidth = '420px';
+    this.element.style.maxWidth = '420px';
+    this.element.style.fontFamily = "'monospace'";
+    this.element.style.fontSize = '12px';
+    this.element.style.display = 'flex';
+    this.element.style.flexDirection = 'column';
+    this.element.style.gap = '8px';
   }
 
   protected setupEventListeners(): void {
