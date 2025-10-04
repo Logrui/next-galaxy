@@ -231,12 +231,38 @@ Modify `app/globals.css` to customize:
 
 ## 🤝 Contributing
 
+We welcome contributions! Please follow these guidelines:
+
+### **Project Constitution**
+All contributions must comply with the [Project Constitution](.specify/memory/constitution.md) which defines our core principles:
+- **Performance-First**: Maintain 60fps target (16.67ms frame budget)
+- **Accessibility**: WCAG AA compliance mandatory
+- **Type Safety**: TypeScript strict mode, no `any` types
+- **Test-Driven Development**: Tests before implementation
+- **Modern Standards**: Next.js 15+, React 19+
+- **Progressive Enhancement**: Graceful degradation required
+- **Developer Experience**: Fast builds, clear errors
+
+### **Development Workflow**
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and test thoroughly
-4. Commit with descriptive messages: `git commit -m "Add feature"`
-5. Push to your branch: `git push origin feature-name`
-6. Create a Pull Request
+3. **Write tests first** (TDD is mandatory)
+4. Make your changes and verify tests pass
+5. Ensure ESLint passes: `npm run lint`
+6. Verify TypeScript compiles: `npx tsc --noEmit`
+7. Test accessibility with screen readers
+8. Commit with conventional commits: `git commit -m "feat: add feature"`
+9. Push to your branch: `git push origin feature-name`
+10. Create a Pull Request with constitutional compliance checklist
+
+### **Quality Gates**
+All PRs must pass:
+- ✅ ESLint with zero warnings
+- ✅ TypeScript strict mode compilation
+- ✅ All tests passing (unit, integration, performance)
+- ✅ 60fps performance target maintained
+- ✅ WCAG AA accessibility compliance
+- ✅ Code review approval
 
 ## 📄 License
 

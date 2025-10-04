@@ -1,26 +1,19 @@
 export type PathMode =
-  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
-  | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17; // 0=Base,1=Spiral,2=AuroraBloom,3=Jets,4=Vortex,5=CrystalWeave,6=ChronoStreams,7=Helix,8=LunarHalo,9=CrescentArcway,10=TidalStreams,11=PillarGlow,12=LagoonMist,13=StarNursery,14=DustLane,15=IceComa,16=AuroraVeil,17=BinaryOrbit
+  | 0 | 1 | 3 | 4 | 5 | 6
+  | 8 | 10 | 11 | 12 | 15; // Removed modes: 2,7,9,13,14,16,17
 
 export const PATH_LABELS: Record<PathMode, string> = {
   0:'Base',
   1:'Spiral',
-  2:'Aurora Bloom',
   3:'Jets',
   4:'Vortex',
   5:'Crystal Weave',
   6:'Chrono Streams',
-  7:'Helix',
   8:'Lunar Halo Drift',
-  9:'Crescent Arcway',
   10:'Tidal Stream Bands',
   11:'Pillar Glow Columns',
   12:'Lagoon Mist Sheet',
-  13:'Star Nursery Cluster',
-  14:'Dust Lane Veil',
-  15:'Ice Coma Bloom',
-  16:'Aurora Veil Curtain',
-  17:'Binary Glow Orbit'
+  15:'Ice Coma Bloom'
 };
 
 interface CreatePathPanelOptions {
@@ -43,22 +36,15 @@ export function createPathPanel(opts: CreatePathPanelOptions){
     <div style="display:flex; flex-wrap:wrap; gap:6px; max-width:320px;">
       <button data-mode="0" style="flex:1 1 45%; padding:4px 6px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.35); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Base</button>
       <button data-mode="1" style="flex:1 1 45%; padding:4px 6px; background:rgba(40,140,255,0.25); border:1px solid rgba(120,180,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Spiral</button>
-  <button data-mode="2" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(60,180,255,0.28), rgba(120,255,190,0.25)); border:1px solid rgba(140,220,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Aurora Bloom</button>
       <button data-mode="3" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,120,70,0.35), rgba(255,225,120,0.3)); border:1px solid rgba(255,170,110,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Jets</button>
       <button data-mode="4" style="flex:1 1 45%; padding:4px 6px; background:rgba(120,255,255,0.18); border:1px solid rgba(140,255,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Vortex</button>
-  <button data-mode="5" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(200,255,245,0.2), rgba(140,220,255,0.2)); border:1px solid rgba(200,255,240,0.5); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Crystal Weave</button>
-  <button data-mode="6" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,160,240,0.3), rgba(120,200,255,0.25)); border:1px solid rgba(220,150,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Chrono Streams</button>
-      <button data-mode="7" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(180,120,255,0.35), rgba(120,255,255,0.3)); border:1px solid rgba(170,140,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Helix</button>
+      <button data-mode="5" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(200,255,245,0.2), rgba(140,220,255,0.2)); border:1px solid rgba(200,255,240,0.5); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Crystal Weave</button>
+      <button data-mode="6" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,160,240,0.3), rgba(120,200,255,0.25)); border:1px solid rgba(220,150,255,0.55); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Chrono Streams</button>
       <button data-mode="8" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(180,210,255,0.18), rgba(220,255,255,0.18)); border:1px solid rgba(200,220,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Lunar Halo Drift</button>
-      <button data-mode="9" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,190,140,0.2), rgba(255,230,200,0.2)); border:1px solid rgba(255,205,150,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Crescent Arcway</button>
       <button data-mode="10" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(150,210,255,0.18), rgba(200,255,255,0.18)); border:1px solid rgba(160,220,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Tidal Stream Bands</button>
       <button data-mode="11" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(180deg, rgba(200,160,255,0.16), rgba(120,180,255,0.16)); border:1px solid rgba(190,150,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Pillar Glow Columns</button>
       <button data-mode="12" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(140,200,255,0.18), rgba(100,160,220,0.22)); border:1px solid rgba(120,190,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Lagoon Mist Sheet</button>
-      <button data-mode="13" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,220,170,0.22), rgba(255,240,210,0.22)); border:1px solid rgba(255,225,180,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Star Nursery Cluster</button>
-      <button data-mode="14" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(120,120,120,0.22), rgba(90,70,50,0.28)); border:1px solid rgba(140,120,100,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Dust Lane Veil</button>
       <button data-mode="15" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(200,240,255,0.22), rgba(160,200,255,0.22)); border:1px solid rgba(180,220,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Ice Coma Bloom</button>
-      <button data-mode="16" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(150,220,255,0.18), rgba(190,160,255,0.22)); border:1px solid rgba(170,190,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Aurora Veil Curtain</button>
-      <button data-mode="17" style="flex:1 1 45%; padding:4px 6px; background:linear-gradient(135deg, rgba(255,190,220,0.2), rgba(200,200,255,0.22)); border:1px solid rgba(220,190,255,0.45); color:#fff; border-radius:3px; cursor:pointer; font-size:11px;">Binary Glow Orbit</button>
     </div>
     <div data-status style="font-size:10px; opacity:.8;">Mode: Base</div>
   `;
@@ -75,6 +61,10 @@ export function createPathPanel(opts: CreatePathPanelOptions){
 
   function refresh(){
     const mode = getMode();
+    // Fallback if an old/removed mode is somehow active
+    if(!(mode in PATH_LABELS)){
+      setMode(0);
+    }
     buttons.forEach(b=>{
       b.style.outline='none'; b.style.boxShadow='none';
       if(Number(b.dataset.mode) === mode){
