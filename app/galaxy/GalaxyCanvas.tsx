@@ -197,6 +197,7 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       material.uniforms.posTex.value = texture;
       
       // Register animation callbacks (NEW - replaces createAnimationLoop)
+      let frameCount = 0;
       const renderCallback = (deltaTime: number) => {
         // Update controls
         controls.update();
@@ -209,6 +210,11 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         
         // Update uniforms time (FIXED: use constant 0.05 per frame like original)
         uniforms.time.value += 0.05;
+        
+        // Debug logging every 60 frames (~1 second)
+        if (frameCount++ % 60 === 0) {
+          console.log('[RenderLoop] Frame:', frameCount, 'Time:', uniforms.time.value.toFixed(2), 'DeltaTime:', deltaTime.toFixed(4));
+        }
         
         // Sync debug GUI settings to uniforms (FIXED: restore GUI sync)
         uniforms.fdAlpha.value = settings.fdAlpha;
@@ -366,8 +372,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       // Hold initial dramatic state fully for 6s, then transition to Spiral/Galaxy
       setTimeout(()=>{
         // Boundary 1 (t=6s): start transitions to middle state
-        seqAnimateNumber(uniforms.dyingMix, 0.0, 600, easeSmooth); // collapse release
-        seqAnimateNumber(uniforms.phaseMix, 0.0, 600, easeInOutCubic); // nebula->galaxy morph quickly
+        // Use ParameterManager for smooth transitions (replaces seqAnimateNumber)
+        parameterManager.transitionToParameters({ dyingMix: 0.0 }, 600);
+        parameterManager.transitionToParameters({ phaseMix: 0.0 }, 600);
         // Vortex -> Spiral path transition
         pathPanel.setMode(1); // Use the panel's setMode which now uses ParameterManager
         // Camera begins long 6s pull-out toward Overview (finishes at t≈12s)

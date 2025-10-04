@@ -159,7 +159,7 @@ export class ParameterManager {
     if (this.uniforms.nebulaAmp) this.uniforms.nebulaAmp.value = this.currentParameters.nebulaAmp;
     if (this.uniforms.phaseMix) this.uniforms.phaseMix.value = this.currentParameters.phaseMix;
     if (this.uniforms.dyingMix) this.uniforms.dyingMix.value = this.currentParameters.dyingMix;
-    if (this.uniforms.pathMode) this.uniforms.pathMode.value = this.currentParameters.pathMode;
+    // Note: pathMode in VisualParameters is managed differently - PathPanel handles fromPathMode/toPathMode/pathMix
     if (this.uniforms.superScale) this.uniforms.superScale.value = this.currentParameters.superScale;
   }
 
