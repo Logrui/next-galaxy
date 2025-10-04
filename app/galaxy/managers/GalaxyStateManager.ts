@@ -46,7 +46,7 @@ export class GalaxyStateManager {
         fdAlpha: 0,
         focalDistance: 500,
         aperture: 300,
-        nebulaAmp: 0.5,
+        nebulaAmp: 1.5,
         superScale: 1.0,
         phaseMix: 0,
         dyingMix: 0,
