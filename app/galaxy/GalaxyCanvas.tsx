@@ -24,6 +24,21 @@ import { createInteraction } from './core/createInteraction';
 import { createAnimationLoop } from './core/createAnimationLoop';
 import { ParticleSystemState } from './types';
 
+// Manager system imports
+import { useGalaxyStateManager } from './hooks/useGalaxyStateManager';
+import { SceneManager } from './managers/SceneManager';
+import { AnimationManager } from './managers/AnimationManager';
+import { InteractionManager } from './managers/InteractionManager';
+import { ParameterManager } from './managers/ParameterManager';
+import { UIManager } from './managers/UIManager';
+
+// Refactored panel imports
+import { CameraInfoPanel } from './ui/CameraInfoPanel';
+import { PresetButtonsPanel } from './ui/PresetButtonsPanel';
+import { PhasePanel } from './ui/PhasePanel';
+import { StatusPanel } from './ui/StatusPanel';
+import { PathPanel } from './ui/PathPanel';
+
 const ENABLE_INTRO_SEQUENCE = true;
 
 interface GalaxyCanvasProps {
@@ -46,6 +61,13 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
   const startIntroFnRef = useRef<() => void>(() => {});
   // Guard to avoid double init in React 18 StrictMode dev (mount -> unmount -> remount)
   const didInitRef = useRef(false);
+
+  // Initialize GalaxyStateManager (NEW - manager system)
+  const stateManager = useGalaxyStateManager({
+    interactionMode: 'free',
+    isInitialized: false,
+    loadingProgress: 0,
+  });
 
   const tryStartIntro = useCallback(() => {
     if (!ENABLE_INTRO_SEQUENCE) return;
