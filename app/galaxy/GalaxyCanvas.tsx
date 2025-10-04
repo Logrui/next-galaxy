@@ -167,8 +167,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     invisiblePlane.visible = false;
     scene.add(invisiblePlane);
 
-    // Debug GUI
+    // Debug GUI (closed by default to avoid overlapping custom panels)
     const { gui, settings, dispose: disposeGUI } = createDebugGUI({ uniforms, camera, controls });
+    gui.close(); // Close by default, can be reopened via the toggle button
 
     // Initialize ParameterManager (NEW - manages shader parameters with GSAP transitions)
     const parameterManager = new ParameterManager(uniforms, stateManager);
@@ -219,6 +220,14 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         // Sync debug GUI settings to uniforms (FIXED: restore GUI sync)
         uniforms.fdAlpha.value = settings.fdAlpha;
         uniforms.superScale.value = settings.superScale;
+        
+        // Sync camera position to GUI settings (for GUI display)
+        settings.cameraX = camera.position.x;
+        settings.cameraY = camera.position.y;
+        settings.cameraZ = camera.position.z;
+        settings.targetX = controls.target.x;
+        settings.targetY = controls.target.y;
+        settings.targetZ = controls.target.z;
         
         // Dual-pass rendering for smooth particles (FIXED: restore glow pass)
         // Pass 1: Glow layer
