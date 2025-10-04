@@ -178,80 +178,6 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     const animationManager = new AnimationManager();
     animationManager.start();
 
-    // Textures from Next public/
-    const loader = new THREE.TextureLoader();
-    loader.load('/scale-texture.png', (tex) => {
-      tex.minFilter = THREE.NearestFilter;
-      tex.magFilter = THREE.NearestFilter;
-      material.uniforms.scaleTex.value = tex;
-    });
-    loader.load('/color-tiles.png', (tex) => {
-      tex.minFilter = THREE.NearestFilter;
-      tex.magFilter = THREE.NearestFilter;
-      material.uniforms.color.value = tex;
-    });
-
-    new EXRLoader().load('/ani-tiles.exr', (texture) => {
-      texture.generateMipmaps = false;
-      texture.minFilter = THREE.NearestFilter;
-      texture.magFilter = THREE.NearestFilter;
-      material.uniforms.posTex.value = texture;
-      
-      // Register animation callbacks (NEW - replaces createAnimationLoop)
-      let frameCount = 0;
-      const renderCallback = (deltaTime: number) => {
-        // Update controls
-        controls.update();
-        
-        // Update camera info panel
-        cameraInfoPanel.update({ camera, controls });
-        
-        // Update status panel
-        statusPanel.update({});
-        
-        // Update uniforms time (FIXED: use constant 0.05 per frame like original)
-        uniforms.time.value += 0.05;
-        
-        // Debug logging every 60 frames (~1 second)
-        if (frameCount++ % 60 === 0) {
-          console.log('[RenderLoop] Frame:', frameCount, 'Time:', uniforms.time.value.toFixed(2), 'DeltaTime:', deltaTime.toFixed(4));
-        }
-        
-        // Sync debug GUI settings to uniforms (FIXED: restore GUI sync)
-        uniforms.fdAlpha.value = settings.fdAlpha;
-        uniforms.superScale.value = settings.superScale;
-        
-        // Sync camera position to GUI settings (for GUI display)
-        settings.cameraX = camera.position.x;
-        settings.cameraY = camera.position.y;
-        settings.cameraZ = camera.position.z;
-        settings.targetX = controls.target.x;
-        settings.targetY = controls.target.y;
-        settings.targetZ = controls.target.z;
-        
-        // Dual-pass rendering for smooth particles (FIXED: restore glow pass)
-        // Pass 1: Glow layer
-        renderer.clear();
-        material.uniforms.glow.value = 1;
-        material.uniforms.superOpacity.value = settings.fdAlpha;
-        material.uniforms.superScale.value = settings.superScale;
-        renderer.render(scene, camera);
-        
-        // Pass 2: Main layer (over glow)
-        renderer.clearDepth();
-        material.uniforms.glow.value = 0;
-        material.uniforms.fade.value = settings.progress;
-        material.uniforms.superOpacity.value = 1;
-        renderer.render(scene, camera);
-      };
-      animationManager.addFrameCallback(renderCallback);
-      
-      introReadyRef.current = true;
-      if(ENABLE_INTRO_SEQUENCE){
-        tryStartIntro();
-      }
-    });
-
     // Initialize InteractionManager (NEW - replaces createInteraction)
     const interactionManager = new InteractionManager(sceneManager, stateManager);
     interactionManager.setMode('free'); // Default to free mode
@@ -260,6 +186,7 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     const uiManager = new UIManager(el, stateManager, sceneManager);
 
     // Create and register all panels (NEW - using Panel base class)
+    // IMPORTANT: Create panels BEFORE texture loading so they're available in renderCallback
     const cameraInfoPanel = new CameraInfoPanel(el);
     uiManager.addPanel('cameraInfo', cameraInfoPanel);
 
@@ -331,9 +258,91 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     uiManager.showPanel('path');
     uiManager.showPanel('status');
 
+    // Textures from Next public/
+    const loader = new THREE.TextureLoader();
+    loader.load('/scale-texture.png', (tex) => {
+      tex.minFilter = THREE.NearestFilter;
+      tex.magFilter = THREE.NearestFilter;
+      material.uniforms.scaleTex.value = tex;
+    });
+    loader.load('/color-tiles.png', (tex) => {
+      tex.minFilter = THREE.NearestFilter;
+      tex.magFilter = THREE.NearestFilter;
+      material.uniforms.color.value = tex;
+    });
+
+    new EXRLoader().load('/ani-tiles.exr', (texture) => {
+      texture.generateMipmaps = false;
+      texture.minFilter = THREE.NearestFilter;
+      texture.magFilter = THREE.NearestFilter;
+      material.uniforms.posTex.value = texture;
+      
+      // Register animation callbacks (NEW - replaces createAnimationLoop)
+      let frameCount = 0;
+      const renderCallback = (deltaTime: number) => {
+        // Update controls
+        controls.update();
+        
+        // Update camera info panel
+        cameraInfoPanel.update({ camera, controls });
+        
+        // Update status panel (doesn't use data param, reads from options)
+        statusPanel.update({});
+        
+        // Debug: Log panel updates every 120 frames (~2 seconds)
+        if (frameCount % 120 === 0) {
+          console.log('[Panels] Camera:', camera.position.toArray(), 'Target:', controls.target.toArray());
+          console.log('[Panels] Phase:', uniforms.phaseMix.value, 'Dying:', uniforms.dyingMix.value);
+          console.log('[Panels] Path from/to/mix:', uniforms.fromPathMode.value, uniforms.toPathMode.value, uniforms.pathMix.value);
+        }
+        
+        // Update uniforms time (FIXED: use constant 0.05 per frame like original)
+        uniforms.time.value += 0.05;
+        
+        // Debug logging every 60 frames (~1 second)
+        if (frameCount++ % 60 === 0) {
+          console.log('[RenderLoop] Frame:', frameCount, 'Time:', uniforms.time.value.toFixed(2), 'DeltaTime:', deltaTime.toFixed(4));
+        }
+        
+        // Sync debug GUI settings to uniforms (FIXED: restore GUI sync)
+        uniforms.fdAlpha.value = settings.fdAlpha;
+        uniforms.superScale.value = settings.superScale;
+        
+        // Sync camera position to GUI settings (for GUI display)
+        settings.cameraX = camera.position.x;
+        settings.cameraY = camera.position.y;
+        settings.cameraZ = camera.position.z;
+        settings.targetX = controls.target.x;
+        settings.targetY = controls.target.y;
+        settings.targetZ = controls.target.z;
+        
+        // Dual-pass rendering for smooth particles (FIXED: restore glow pass)
+        // Pass 1: Glow layer
+        renderer.clear();
+        material.uniforms.glow.value = 1;
+        material.uniforms.superOpacity.value = settings.fdAlpha;
+        material.uniforms.superScale.value = settings.superScale;
+        renderer.render(scene, camera);
+        
+        // Pass 2: Main layer (over glow)
+        renderer.clearDepth();
+        material.uniforms.glow.value = 0;
+        material.uniforms.fade.value = settings.progress;
+        material.uniforms.superOpacity.value = 1;
+        renderer.render(scene, camera);
+      };
+      animationManager.addFrameCallback(renderCallback);
+      
+      introReadyRef.current = true;
+      if(ENABLE_INTRO_SEQUENCE){
+        tryStartIntro();
+      }
+    });
+
     // NOTE: Window resize is now handled automatically by SceneManager
     // NOTE: Animation loop is now handled by AnimationManager
     // NOTE: Panel lifecycle is now handled by UIManager
+    // NOTE: Panels are created early (before texture loading) so they're available in renderCallback
 
   // Intro cinematic sequence:
   // 0s   : Dying Star phase (dyingMix=1), Vortex path (mode 4), camera Close Up preset
