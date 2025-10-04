@@ -121,17 +121,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       camera.position.set(59.3, 196, 355);
     }
 
-    // Modular camera info overlay
-  const cameraInfoOverlay = createCameraInfoOverlay(el);
-  cameraInfoRef.current = cameraInfoOverlay.element;
-
     // Initialize camera animator
     const cameraAnimator = createCameraAnimator(camera, controls);
     cameraAnimatorRef.current = cameraAnimator;
-
-  // Modular preset buttons (after animator exists)
-  const presetButtonsPanel = createPresetButtons(el, cameraAnimator);
-  presetButtonsRef.current = presetButtonsPanel.element;
 
     // Ensure target reflects Start preset
     if (startPreset) {
@@ -193,6 +185,9 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     // Debug GUI
     const { gui, settings, dispose: disposeGUI } = createDebugGUI({ uniforms, camera, controls });
 
+    // Initialize ParameterManager (NEW - manages shader parameters with GSAP transitions)
+    const parameterManager = new ParameterManager(uniforms, stateManager);
+
     // Initialize AnimationManager (NEW - replaces createAnimationLoop)
     const animationManager = new AnimationManager();
     animationManager.start();
@@ -221,10 +216,11 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         // Update controls
         controls.update();
         
-        // Update camera info display
-        if (cameraInfoOverlay) {
-          cameraInfoOverlay.update(camera, controls);
-        }
+        // Update camera info panel
+        cameraInfoPanel.update({ camera, controls });
+        
+        // Update status panel
+        statusPanel.update({});
         
         // Update uniforms time
         uniforms.time.value += deltaTime;
@@ -234,14 +230,6 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         renderer.render(scene, camera);
       };
       animationManager.addFrameCallback(renderCallback);
-      
-      // Status panel update callback
-      const statusCallback = () => {
-        if (statusPanelRef.current) {
-          statusPanelRef.current.update();
-        }
-      };
-      animationManager.addFrameCallback(statusCallback);
       
       introReadyRef.current = true;
       if(ENABLE_INTRO_SEQUENCE){
@@ -253,87 +241,63 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     const interactionManager = new InteractionManager(sceneManager, stateManager);
     interactionManager.setMode('free'); // Default to free mode
 
-    // NOTE: Window resize is now handled automatically by SceneManager
-    // NOTE: Animation loop is now handled by AnimationManager
+    // Initialize UIManager (NEW - manages all UI panels)
+    const uiManager = new UIManager(el, stateManager, sceneManager);
 
-    // Phase panel module integration
-    function positionPhase(panel: HTMLElement){
-      if(!presetButtonsRef.current || !containerRef.current) return;
-      const rect = presetButtonsRef.current.getBoundingClientRect();
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const left = (rect.left - containerRect.left) + rect.width + 16;
-      panel.style.left = `${left}px`;
-    }
-    const phasePanelAPI = createPhasePanel({
-      container: el,
+    // Create and register all panels (NEW - using Panel base class)
+    const cameraInfoPanel = new CameraInfoPanel(el);
+    uiManager.addPanel('cameraInfo', cameraInfoPanel);
+
+    const presetButtonsPanel = new PresetButtonsPanel(el, cameraAnimator);
+    uiManager.addPanel('presetButtons', presetButtonsPanel);
+
+    const phasePanel = new PhasePanel(el, {
       getPhaseMix: () => uniforms.phaseMix.value,
       getDyingMix: () => uniforms.dyingMix.value,
-      animatePhase: (target:number,duration=1400)=>{
-        const startVal = uniforms.phaseMix.value;
-        if(Math.abs(startVal-target)<0.0001) return;
-        const startTime = performance.now();
-        function step(now:number){
-          const t = Math.min(1,(now-startTime)/duration);
-          const eased = t<0.5?4.0*t*t*t:1.0-Math.pow(-2.0*t+2.0,3.0)/2.0;
-          uniforms.phaseMix.value = startVal + (target-startVal)*eased;
-          if(t<1) requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
+      animatePhase: (target: number, duration?: number) => {
+        parameterManager.transitionToParameters({ phaseMix: target }, duration);
       },
-      animateDying: (target:number,duration=1600)=>{
-        const startVal = uniforms.dyingMix.value;
-        if(Math.abs(startVal-target)<0.0001) return;
-        const startTime = performance.now();
-        function step(now:number){
-          const t = Math.min(1,(now-startTime)/duration);
-          const eased = t*t*(3.0-2.0*t);
-          uniforms.dyingMix.value = startVal + (target-startVal)*eased;
-          if(t<1) requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
-      }
+      animateDying: (target: number, duration?: number) => {
+        parameterManager.transitionToParameters({ dyingMix: target }, duration);
+      },
     });
-    requestAnimationFrame(()=>positionPhase(phasePanelAPI.element));
+    uiManager.addPanel('phase', phasePanel);
 
-    // Path variants panel (simple immediate uniform update; easing can be added later if desired)
-    // Path transition animation helper
-    function animatePathTransition(target:number, duration=1400){
-      const startMode = uniforms.toPathMode.value;
-      if(startMode === target){ return; }
-      uniforms.fromPathMode.value = startMode;
-      uniforms.toPathMode.value = target;
-      const startTime = performance.now();
-      function step(now:number){
-        const t = Math.min(1, (now-startTime)/duration);
-        // smoothstep easing
-        const eased = t*t*(3-2*t);
-        uniforms.pathMix.value = eased;
-        if(t<1) requestAnimationFrame(step); else {
-          // finalize legacy reference for consistency
-          uniforms.extraPathMode.value = target;
-          uniforms.fromPathMode.value = target;
-          uniforms.toPathMode.value = target;
-          uniforms.pathMix.value = 1.0;
-        }
-      }
-      uniforms.pathMix.value = 0.0;
-      requestAnimationFrame(step);
-    }
-
-    const pathPanelAPI = createPathPanel({
-      container: el,
+    const pathPanel = new PathPanel(el, {
       getMode: () => uniforms.toPathMode.value as any,
-      setMode: (m) => { animatePathTransition(m, 1600); }
+      setMode: (m) => {
+        // Path transition with fromPath/toPath logic
+        uniforms.fromPathMode.value = uniforms.toPathMode.value;
+        uniforms.toPathMode.value = m;
+        uniforms.pathMix.value = 0.0;
+        parameterManager.transitionToParameters({ pathMode: m }, 1600).then(() => {
+          uniforms.extraPathMode.value = m;
+          uniforms.fromPathMode.value = m;
+          uniforms.pathMix.value = 1.0;
+        });
+      },
     });
-    const statusPanelAPI = createStatusPanel({
-      container: el,
+    uiManager.addPanel('path', pathPanel);
+
+    const statusPanel = new StatusPanel(el, {
       getPhaseMix: () => uniforms.phaseMix.value,
       getDyingMix: () => uniforms.dyingMix.value,
       getFromPath: () => uniforms.fromPathMode.value as any,
       getToPath: () => uniforms.toPathMode.value as any,
       getPathMix: () => uniforms.pathMix.value,
     });
-    statusPanelRef.current = statusPanelAPI;
+    uiManager.addPanel('status', statusPanel);
+
+    // Show all panels
+    uiManager.showPanel('cameraInfo');
+    uiManager.showPanel('presetButtons');
+    uiManager.showPanel('phase');
+    uiManager.showPanel('path');
+    uiManager.showPanel('status');
+
+    // NOTE: Window resize is now handled automatically by SceneManager
+    // NOTE: Animation loop is now handled by AnimationManager
+    // NOTE: Panel lifecycle is now handled by UIManager
 
   // Intro cinematic sequence:
   // 0s   : Dying Star phase (dyingMix=1), Vortex path (mode 4), camera Close Up preset
@@ -404,7 +368,8 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
         // Boundary 1 (t=6s): start transitions to middle state
         seqAnimateNumber(uniforms.dyingMix, 0.0, 600, easeSmooth); // collapse release
         seqAnimateNumber(uniforms.phaseMix, 0.0, 600, easeInOutCubic); // nebula->galaxy morph quickly
-        animatePathTransition(1, 800); // Vortex -> Spiral
+        // Vortex -> Spiral path transition
+        pathPanel.setMode(1); // Use the panel's setMode which now uses ParameterManager
         // Camera begins long 6s pull-out toward Overview (finishes at t≈12s)
         if(overviewPreset){
           console.log('[Intro] Begin 6s camera pull to Overview preset');
@@ -458,7 +423,7 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       }, 6000);
       // Boundary 2 (t=9s): still during camera pull; transition Spiral -> Base while camera continues
       setTimeout(()=>{
-        animatePathTransition(0, 800); // Spiral -> Base (camera still moving until t=12s)
+        pathPanel.setMode(0); // Spiral -> Base (camera still moving until t=12s)
       }, 9000);
       // (Final stable composition reached near t=9.8s while camera completes glide by t=12s)
   // Start fading overlay immediately (simple 1.5s fade)
@@ -506,22 +471,19 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     }
 
   // Initialize phase panel visual state to Galaxy (prevent unwanted nebula morph)
-  phasePanelAPI.setPhase('galaxy');
-
-    // Hook into resize AFTER onResize is defined
-  const phasePanelResize = () => positionPhase(phasePanelAPI.element);
-    window.addEventListener('resize', phasePanelResize);
+  phasePanel.setPhase('galaxy');
 
     // Add to cleanup
     return () => {
       introReadyRef.current = false;
       introTriggeredRef.current = false;
       loadingParticleStateRef.current = null;
-      window.removeEventListener('resize', phasePanelResize);
       
       // Manager cleanup (NEW)
       animationManager.dispose();
       interactionManager.dispose();
+      parameterManager.dispose();
+      uiManager.dispose(); // Handles all panel cleanup
       
       disposeGUI();
       if (cameraAnimatorRef.current) {
@@ -532,23 +494,8 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       // Still need to manually dispose geometry and material (not managed by SceneManager yet)
       geo.dispose();
       material.dispose();
-      if (cameraInfoRef.current && el.contains(cameraInfoRef.current)) {
-        el.removeChild(cameraInfoRef.current);
-      }
-      if (presetButtonsRef.current && el.contains(presetButtonsRef.current)) {
-        el.removeChild(presetButtonsRef.current);
-      }
       if (overlay.parentElement === el) {
         el.removeChild(overlay);
-      }
-      if (phasePanelAPI.element && el.contains(phasePanelAPI.element)) {
-        el.removeChild(phasePanelAPI.element);
-      }
-      if (pathPanelAPI.element && el.contains(pathPanelAPI.element)) {
-        el.removeChild(pathPanelAPI.element);
-      }
-      if(statusPanelRef.current && statusPanelRef.current.element && el.contains(statusPanelRef.current.element)){
-        el.removeChild(statusPanelRef.current.element);
       }
     };
   }, [isClient, tryStartIntro]);
