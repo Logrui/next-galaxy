@@ -233,7 +233,7 @@ Single Next.js project structure:
   - **Reference**: INTEGRATION_GUIDE.md Phase 1
   - **File**: `app/galaxy/GalaxyCanvas.tsx`
 
-- [ ] **T024** Refactor GalaxyCanvas.tsx (Part 2: Scene Management)
+- [x] **T024** Refactor GalaxyCanvas.tsx (Part 2: Scene Management)
   - Replace inline Three.js setup with SceneManager
   - Remove manual resize handler (SceneManager handles it)
   - Update cleanup to use sceneManager.dispose()

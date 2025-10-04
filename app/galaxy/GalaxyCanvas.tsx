@@ -103,25 +103,16 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     const el = containerRef.current;
     if (!el) return;
 
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(el.clientWidth, el.clientHeight);
-    // Three r150+: use outputColorSpace instead of outputEncoding
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // physicallyCorrectLights was removed in Three.js r150+ - lighting is now physically correct by default
+    // Initialize SceneManager (NEW - replaces manual Three.js setup)
+    const sceneManager = new SceneManager(el);
+    const renderer = sceneManager.getRenderer();
+    const scene = sceneManager.getScene();
+    const camera = sceneManager.getCamera();
+    const controls = sceneManager.getControls();
+
+    // Configure renderer for galaxy scene
     renderer.autoClear = false;
 
-    el.appendChild(renderer.domElement);
-
-    // Modular camera info overlay
-  const cameraInfoOverlay = createCameraInfoOverlay(el);
-  cameraInfoRef.current = cameraInfoOverlay.element;
-
-
-    // Scene & Camera
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, el.clientWidth / el.clientHeight, 1, 4000);
     // Apply Start preset if available, otherwise fall back to previous default
     const startPreset = CAMERA_PRESETS.find(p => p.name === 'Start');
     if (startPreset) {
@@ -129,7 +120,10 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     } else {
       camera.position.set(59.3, 196, 355);
     }
-    const controls = new OrbitControls(camera, renderer.domElement);
+
+    // Modular camera info overlay
+  const cameraInfoOverlay = createCameraInfoOverlay(el);
+  cameraInfoRef.current = cameraInfoOverlay.element;
 
     // Initialize camera animator
     const cameraAnimator = createCameraAnimator(camera, controls);
@@ -252,14 +246,7 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
     // Animation loop handle
     let animationHandle: { stop: () => void } | null = null;
 
-    const onResize = () => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      renderer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    };
-    window.addEventListener('resize', onResize);
+    // NOTE: Window resize is now handled automatically by SceneManager
 
     // Phase panel module integration
     function positionPhase(panel: HTMLElement){
@@ -522,7 +509,6 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       introReadyRef.current = false;
       introTriggeredRef.current = false;
       loadingParticleStateRef.current = null;
-      window.removeEventListener('resize', onResize);
       window.removeEventListener('resize', phasePanelResize);
   interaction.dispose();
   disposeGUI();
@@ -530,12 +516,11 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       if (cameraAnimatorRef.current) {
         cameraAnimatorRef.current.dispose();
       }
-      renderer.dispose();
+      // SceneManager handles renderer, scene, camera, controls disposal
+      sceneManager.dispose();
+      // Still need to manually dispose geometry and material (not managed by SceneManager yet)
       geo.dispose();
       material.dispose();
-      if (el.contains(renderer.domElement)) {
-        el.removeChild(renderer.domElement);
-      }
       if (cameraInfoRef.current && el.contains(cameraInfoRef.current)) {
         el.removeChild(cameraInfoRef.current);
       }
