@@ -6,22 +6,14 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 import GUI from 'lil-gui';
 import { random } from 'canvas-sketch-util';
-import createInputEvents from 'simple-input-events';
 import { fragmentSource, vertexSource } from './shaders';
 import { CAMERA_PRESETS } from './location_presets';
 import { createCameraAnimator, CameraAnimator } from './camera_animator';
-import { createCameraInfoOverlay } from './ui/createCameraInfoOverlay';
-import { createPresetButtons } from './ui/createPresetButtons';
-import { createPhasePanel } from './ui/createPhasePanel';
-import { createPathPanel } from './ui/createPathPanel';
-import { createStatusPanel } from './ui/createStatusPanel';
 import { getGeometryForPhase } from './presets';
 import { createUniforms } from './core/createUniforms';
 import { createMaterial } from './core/createMaterial';
 import { createPointCloud } from './core/createPointCloud';
 import { createDebugGUI } from './core/createDebugGUI';
-import { createInteraction } from './core/createInteraction';
-import { createAnimationLoop } from './core/createAnimationLoop';
 import { ParticleSystemState } from './types';
 
 // Manager system imports
@@ -47,14 +39,8 @@ interface GalaxyCanvasProps {
 
 export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const debugSphereRef = useRef<THREE.Mesh | null>(null);
-  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
-  const pointerRef = useRef<THREE.Vector2>(new THREE.Vector2());
   const [isClient, setIsClient] = useState(false);
-  const cameraInfoRef = useRef<HTMLDivElement | null>(null);
-  const presetButtonsRef = useRef<HTMLDivElement | null>(null);
   const cameraAnimatorRef = useRef<CameraAnimator | null>(null);
-  const statusPanelRef = useRef<{ element: HTMLDivElement; update: ()=>void; destroy: ()=>void } | null>(null);
   const loadingParticleStateRef = useRef<ParticleSystemState | null>(null);
   const introReadyRef = useRef(false);
   const introTriggeredRef = useRef(false);
@@ -171,7 +157,6 @@ export default function GalaxyCanvas({ loadingParticleState }: GalaxyCanvasProps
       new THREE.MeshBasicMaterial({ color: 0x000000 })
     );
     scene.add(debugSphere);
-    debugSphereRef.current = debugSphere;
 
     // Invisible plane for mouse projection
     const invisiblePlane = new THREE.Mesh(

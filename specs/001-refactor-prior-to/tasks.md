@@ -260,7 +260,7 @@ Single Next.js project structure:
   - **File**: `app/galaxy/GalaxyCanvas.tsx`
   - **Dependency**: Requires T025
 
-- [ ] **T027** Refactor GalaxyCanvas.tsx (Part 5: Cleanup & Validation)
+- [x] **T027** Refactor GalaxyCanvas.tsx (Part 5: Cleanup & Validation)
   - Remove redundant refs and manual cleanup logic
   - Verify all features work identically
   - Run ESLint and fix any issues
