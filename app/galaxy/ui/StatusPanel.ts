@@ -46,6 +46,9 @@ export class StatusPanel extends Panel {
     this.element.style.right = '20px';
     this.element.style.minWidth = '200px';
     this.element.style.maxWidth = '420px';
+    this.element.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif";
+    this.element.style.fontSize = '12px';
+    this.element.style.letterSpacing = '0.02em';
     this.element.style.pointerEvents = 'none';
     this.element.style.userSelect = 'none';
   }

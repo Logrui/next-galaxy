@@ -40,8 +40,9 @@ export class PresetButtonsPanel extends Panel {
     this.element.style.top = '200px';
     this.element.style.left = '20px';
     this.element.style.minWidth = '240px';
-    this.element.style.fontFamily = "'Courier New', monospace";
+    this.element.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif";
     this.element.style.fontSize = '12px';
+    this.element.style.letterSpacing = '0.02em';
   }
 
   protected setupEventListeners(): void {

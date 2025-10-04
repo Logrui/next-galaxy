@@ -76,8 +76,9 @@ export class PathPanel extends Panel {
     this.element.style.top = '380px';
     this.element.style.left = '20px';
     this.element.style.minWidth = '340px';
-    this.element.style.fontFamily = "'monospace'";
+    this.element.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif";
     this.element.style.fontSize = '12px';
+    this.element.style.letterSpacing = '0.02em';
   }
 
   protected setupEventListeners(): void {
